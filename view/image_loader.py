@@ -66,33 +66,33 @@ class BackgroundImageFetcher:
         self._cancel = None
         self._q = None
 
-    def start(self, elements: list):
+    def start(self, images: list):
         import queue, threading
 
         if self._thread and self._thread.is_alive():
             raise RuntimeError("Already running")
         self._q = queue.Queue()
         self._cancel = threading.Event()
-        logger.debug("BackgroundImageFetcher.start creating thread for %d elements", len(elements))
-        self._thread = threading.Thread(target=self._run, args=(elements, self._q, self._cancel), daemon=True)
+        logger.debug("BackgroundImageFetcher.start creating thread for %d images", len(images))
+        self._thread = threading.Thread(target=self._run, args=(images, self._q, self._cancel), daemon=True)
         self._thread.start()
         return self._q
 
-    def _run(self, elements, q, cancel_event):
+    def _run(self, images, q, cancel_event):
         logger.debug("BackgroundImageFetcher._run entered")
-        for el in elements:
+        for image in images:
             if cancel_event.is_set():
                 break
-            url = el.get("img_url")
-            color = el.get("color")
+            url = image.get("img_url")
+            tag = image.get("tag")
             try:
                 logger.debug("BackgroundImageFetcher fetching %s", url)
                 b = fetch_image_bytes(self.db_path, url)
                 logger.debug("BackgroundImageFetcher fetched bytes=%s for %s", None if b is None else len(b), url)
-                q.put((color, b))
+                q.put((tag, b))
             except Exception:
                 logger.exception("BackgroundImageFetcher exception fetching %s", url)
-                q.put((color, None))
+                q.put((tag, None))
         q.put("ALL_DONE")
 
     def cancel(self):

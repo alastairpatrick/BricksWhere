@@ -305,12 +305,25 @@ class MainWindow(QMainWindow):
         else:
             return
 
+        fetch_images = []
+        for element in elements:
+            color = element["color"]
+            row = QWidget()
+            row_layout = QHBoxLayout(row)
+            img_label = QLabel()
+            img_label.setFixedSize(64, 64)
+            name_label = QLabel(color)
+            row_layout.addWidget(img_label)
+            row_layout.addWidget(name_label)
+            self._images_layout.addWidget(row)
+            fetch_images.append({"tag": img_label, "img_url": element["img_url"]})
+
         # cancel any running fetcher for the previous selection
         self._img_fetcher.cancel()
         self._img_fetcher.join()
 
         # start background fetcher
-        self._img_queue = self._img_fetcher.start(elements)
+        self._img_queue = self._img_fetcher.start(fetch_images)
         logger.debug("BackgroundImageFetcher.start returned queue")
 
         # start polling
@@ -323,19 +336,11 @@ class MainWindow(QMainWindow):
                 if item == "ALL_DONE":
                     self._img_poll_timer.stop()
                     break
-                color, img_bytes = item
-                logger.debug("fetched image for %s, bytes=%s", color, None if img_bytes is None else len(img_bytes))
-                row = QWidget()
-                row_layout = QHBoxLayout(row)
-                img_label = QLabel()
-                img_label.setFixedSize(64, 64)
+                img_label, img_bytes = item
+                logger.debug("fetched image bytes=%s", None if img_bytes is None else len(img_bytes))
                 if img_bytes:
                     pix = QPixmap()
                     pix.loadFromData(img_bytes)
                     img_label.setPixmap(pix.scaled(64, 64, Qt.KeepAspectRatio, Qt.SmoothTransformation))
-                name_label = QLabel(color)
-                row_layout.addWidget(img_label)
-                row_layout.addWidget(name_label)
-                self._images_layout.addWidget(row)
         except queue.Empty:
             pass

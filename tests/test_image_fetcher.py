@@ -20,8 +20,8 @@ def test_background_image_fetcher_reads_local_files(tmp_path):
     p2.write_bytes(SINGLE_PIXEL_PNG)
 
     elements = [
-        {"color": "Red", "img_url": str(p1)},
-        {"color": "Blue", "img_url": str(p2)},
+        {"tag": "Red", "img_url": str(p1)},
+        {"tag": "Blue", "img_url": str(p2)},
     ]
 
     fetcher = BackgroundImageFetcher(db_path=":memory:")
@@ -33,8 +33,8 @@ def test_background_image_fetcher_reads_local_files(tmp_path):
         item = q.get(timeout=2)
         if item == "ALL_DONE":
             break
-        color, data = item
-        seen[color] = data
+        tag, data = item
+        seen[tag] = data
 
     # ensure both colors were fetched and bytes match
     assert set(seen.keys()) == {"Red", "Blue"}
