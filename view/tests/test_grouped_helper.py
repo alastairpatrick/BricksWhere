@@ -10,16 +10,16 @@ class _DummyDirVM:
     def __init__(self, db_path, on_search_applied=None, on_selection_changed=None):
         pass
 
-    def get_categories(self, filter_text=""):
+    def get_categories(self, filter_text="", only_my: bool = False):
         return []
 
-    def get_themes(self, filter_text=""):
+    def get_themes(self, filter_text="", only_my: bool = False):
         return []
 
-    def list_parts(self, expanded_list, filter_text=""):
+    def list_parts(self, expanded_list, filter_text="", only_my: bool = False):
         return ({}, False, {})
 
-    def list_sets(self, expanded_list, filter_text=""):
+    def list_sets(self, expanded_list, filter_text="", only_my: bool = False):
         return ({}, False, {})
 
 # patch the DirectoryViewModel in the module so MainWindow __init__ doesn't touch a DB

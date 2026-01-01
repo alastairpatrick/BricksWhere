@@ -27,7 +27,7 @@ class DirectoryViewModel:
         # `_selected` is a tuple representing selection type and id, e.g. ("PART","P0001") or ("SET","6001-1")
         self._selected = None
 
-    def get_categories(self, filter_text: str = "") -> List[Tuple[int, str]]:
+    def get_categories(self, filter_text: str = "", only_my: bool = False) -> List[Tuple[int, str]]:
         """Return list of (id, name) for categories that contain at least one part.
 
         If `filter_text` is provided, only categories that contain parts matching
@@ -36,18 +36,37 @@ class DirectoryViewModel:
         """
         with closing(create_connection(self.db_path)) as conn, conn:
             cur = conn.cursor()
-            sql = "SELECT DISTINCT pc.id, pc.name FROM part_categories pc JOIN parts p ON pc.id = p.part_cat_id"
-            if filter_text:
-                sql += " WHERE (p.part_num LIKE ? OR p.name LIKE ?)"
-                params = (filter_text + "%", '%' + filter_text + '%')
+            params = []
+            # If filtering to only user-owned parts, compute the owned parts once
+            # using a CTE and join to parts. This avoids correlated scalar
+            # subqueries per category and reduces execution time.
+            if only_my:
+                sql = (
+                    "WITH owned_parts AS ("
+                    " SELECT up.part_num FROM user_parts up WHERE COALESCE(up.quantity,0) <> 0"
+                    " UNION"
+                    " SELECT ip.part_num FROM inventory_parts ip JOIN inventories inv ON ip.inventory_id = inv.id JOIN user_sets us ON us.set_num = inv.set_num WHERE COALESCE(us.quantity,0) > 0"
+                    " )"
+                    " SELECT DISTINCT pc.id, pc.name FROM part_categories pc"
+                    " JOIN parts p ON p.part_cat_id = pc.id"
+                    " JOIN owned_parts op ON op.part_num = p.part_num"
+                )
+                if filter_text:
+                    sql += " WHERE (p.part_num LIKE ? OR p.name LIKE ?)"
+                    params.extend([filter_text + "%", '%' + filter_text + '%'])
+                sql += " ORDER BY pc.name"
             else:
-                params = ()
-            sql += " ORDER BY pc.name"
-            cur.execute(sql, params)
+                sql = "SELECT DISTINCT pc.id, pc.name FROM part_categories pc JOIN parts p ON pc.id = p.part_cat_id"
+                if filter_text:
+                    sql += " WHERE (p.part_num LIKE ? OR p.name LIKE ?)"
+                    params.extend([filter_text + "%", '%' + filter_text + '%'])
+                sql += " ORDER BY pc.name"
+
+            cur.execute(sql, tuple(params))
             rows = cur.fetchall()
             return rows
 
-    def get_themes(self, filter_text: str = "") -> List[Tuple[int, str]]:
+    def get_themes(self, filter_text: str = "", only_my: bool = False) -> List[Tuple[int, str]]:
         """Return list of (id, name) for themes that contain at least one set.
 
         If `filter_text` is provided, only themes that contain sets matching
@@ -57,17 +76,22 @@ class DirectoryViewModel:
         with closing(create_connection(self.db_path)) as conn, conn:
             cur = conn.cursor()
             sql = "SELECT DISTINCT t.id, t.name FROM themes t JOIN sets s ON t.id = s.theme_id"
+            params = []
+            where_clauses = []
+            if only_my:
+                where_clauses.append("EXISTS (SELECT 1 FROM user_sets us WHERE us.set_num = s.set_num AND COALESCE(us.quantity,0) > 0)")
             if filter_text:
-                sql += " WHERE (s.set_num LIKE ? OR s.name LIKE ?)"
-                params = (filter_text + "%", '%' + filter_text + '%')
-            else:
-                params = ()
+                where_clauses.append("(s.set_num LIKE ? OR s.name LIKE ?)")
+                params.extend([filter_text + "%", '%' + filter_text + '%'])
+            if where_clauses:
+                sql += " WHERE " + " AND ".join(where_clauses)
+            params = tuple(params)
             sql += " ORDER BY t.name"
             cur.execute(sql, params)
             rows = cur.fetchall()
             return rows
 
-    def list_sets(self, expanded_theme_ids: List[int], filter_text: str = "") -> Tuple[Dict[int, List[Tuple[str, str]]], bool, Dict[int, bool]]:
+    def list_sets(self, expanded_theme_ids: List[int], filter_text: str = "", only_my: bool = False) -> Tuple[Dict[int, List[Tuple[str, str]]], bool, Dict[int, bool]]:
         """Return (sets_by_theme, overall_truncated, per_theme_truncated).
 
         Mirrors the behavior of `list_parts` but for sets grouped by theme.
@@ -84,12 +108,15 @@ class DirectoryViewModel:
                 return sets_by_theme, False, per_theme_truncated
 
             for theme_id in expanded_theme_ids:
-                sql = "SELECT set_num, name FROM sets WHERE theme_id = ?"
+                if only_my:
+                    sql = "SELECT s.set_num, s.name FROM sets s JOIN user_sets us ON s.set_num = us.set_num WHERE s.theme_id = ? AND COALESCE(us.quantity,0) > 0"
+                else:
+                    sql = "SELECT s.set_num, s.name FROM sets s WHERE theme_id = ?"
                 params = [theme_id]
                 if filter_text:
-                    sql += " AND (set_num LIKE ? OR name LIKE ?)"
+                    sql += " AND (s.set_num LIKE ? OR s.name LIKE ?)"
                     params.extend([filter_text + "%", '%' + filter_text + '%'])
-                sql += " ORDER BY set_num LIMIT 501"
+                sql += " ORDER BY s.set_num LIMIT 501"
                 cur.execute(sql, params)
                 rows = cur.fetchall()
                 per_theme_truncated[theme_id] = len(rows) > 500
@@ -102,7 +129,7 @@ class DirectoryViewModel:
         finally:
             conn.close()
 
-    def list_parts(self, expanded_cat_ids: List[int], filter_text: str = "") -> Tuple[object, bool]:
+    def list_parts(self, expanded_cat_ids: List[int], filter_text: str = "", only_my: bool = False) -> Tuple[object, bool]:
         """Return (rows, truncated) where truncated indicates there may be more results.
         """
         conn = create_connection(self.db_path)
@@ -122,9 +149,16 @@ class DirectoryViewModel:
             for cat_id in expanded_cat_ids:
                 sql = "SELECT part_num, name FROM parts WHERE part_cat_id = ?"
                 params = [cat_id]
+                where_additions = []
                 if filter_text:
-                    sql += " AND (part_num LIKE ? OR name LIKE ?)"
+                    where_additions.append("(part_num LIKE ? OR name LIKE ?)")
                     params.extend([filter_text + "%", '%' + filter_text + '%'])
+                if only_my:
+                    where_additions.append(
+                        "(EXISTS (SELECT 1 FROM user_parts up WHERE up.part_num = parts.part_num AND COALESCE(up.quantity,0) <> 0) OR EXISTS (SELECT 1 FROM inventory_parts ip JOIN inventories inv ON ip.inventory_id = inv.id JOIN user_sets us ON us.set_num = inv.set_num WHERE ip.part_num = parts.part_num AND COALESCE(us.quantity,0) > 0))"
+                    )
+                if where_additions:
+                    sql += " AND " + " AND ".join(where_additions)
                 sql += " ORDER BY part_num LIMIT 501"
                 cur.execute(sql, params)
                 rows = cur.fetchall()
@@ -139,6 +173,7 @@ class DirectoryViewModel:
         finally:
             conn.close()
 
+        
     # --- Search debounce API ---
     def set_search_text(self, text: str):
         """Set the pending search text and schedule debounce timer.

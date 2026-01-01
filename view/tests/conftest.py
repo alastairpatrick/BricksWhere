@@ -11,16 +11,16 @@ class FakeDirVM:
         self.selected_part = None
         self.selected_set = None
 
-    def get_categories(self, filter_text=""):
+    def get_categories(self, filter_text="", only_my: bool = False):
         return []
 
-    def get_themes(self, filter_text=""):
+    def get_themes(self, filter_text="", only_my: bool = False):
         return []
 
-    def list_parts(self, expanded, filter_text=""):
+    def list_parts(self, expanded, filter_text="", only_my: bool = False):
         return {}, False, {}
 
-    def list_sets(self, expanded, filter_text=""):
+    def list_sets(self, expanded, filter_text="", only_my: bool = False):
         return {}, False, {}
 
     def select_part(self, part_num):

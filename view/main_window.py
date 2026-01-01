@@ -15,6 +15,7 @@ from PySide6.QtWidgets import (
     QLabel,
     QScrollArea,
     QLineEdit as QLineEditWidget,
+    QCheckBox,
     QHBoxLayout,
 )
 from PySide6.QtGui import QAction, QPixmap
@@ -67,11 +68,16 @@ class MainWindow(QMainWindow):
         # Delegate debounce and application of search text to the DirectoryViewModel
         self._search.textChanged.connect(self._on_search_text_changed)
 
+        # checkbox to filter to only parts/sets the user owns
+        self._only_my_checkbox = QCheckBox("My Parts")
+        self._only_my_checkbox.stateChanged.connect(lambda v: self._populate_parts(filter_text=self._search.text()))
+
         self._tree = QTreeWidget()
         self._tree.setHeaderHidden(True)
         self._tree.itemSelectionChanged.connect(self._on_tree_selection_changed)
 
         dock_layout.addWidget(self._search)
+        dock_layout.addWidget(self._only_my_checkbox)
         dock_layout.addWidget(self._tree)
         dock.setWidget(dock_widget)
         self.addDockWidget(Qt.LeftDockWidgetArea, dock)
@@ -211,12 +217,21 @@ class MainWindow(QMainWindow):
         self._tree.blockSignals(True)
         try:
             # rebuild Parts section
-            categories = self._directory_vm.get_categories(filter_text)
-            _ = self._rebuild_grouped_section(self._parts_node, categories, expanded_ids, self._directory_vm.list_parts, group_data_role=Qt.UserRole+1, item_data_role=Qt.UserRole, item_text_fmt=lambda k, n: f"{k} - {n}", filter_text=filter_text)
+            only_my = bool(self._only_my_checkbox.isChecked())
+            categories = self._directory_vm.get_categories(filter_text, only_my=only_my)
+
+            def parts_fetcher(expanded, filter_text=""):
+                return self._directory_vm.list_parts(expanded, filter_text, only_my=only_my)
+
+            _ = self._rebuild_grouped_section(self._parts_node, categories, expanded_ids, parts_fetcher, group_data_role=Qt.UserRole+1, item_data_role=Qt.UserRole, item_text_fmt=lambda k, n: f"{k} - {n}", filter_text=filter_text)
 
             # rebuild Sets/Themes section
-            themes = self._directory_vm.get_themes(filter_text)
-            _ = self._rebuild_grouped_section(self._sets_node, themes, expanded_theme_ids, self._directory_vm.list_sets, group_data_role=Qt.UserRole+1, item_data_role=Qt.UserRole + 2, item_text_fmt=lambda k, n: f"{k} - {n}", filter_text=filter_text)
+            themes = self._directory_vm.get_themes(filter_text, only_my=only_my)
+
+            def sets_fetcher(expanded, filter_text=""):
+                return self._directory_vm.list_sets(expanded, filter_text, only_my=only_my)
+
+            _ = self._rebuild_grouped_section(self._sets_node, themes, expanded_theme_ids, sets_fetcher, group_data_role=Qt.UserRole+1, item_data_role=Qt.UserRole + 2, item_text_fmt=lambda k, n: f"{k} - {n}", filter_text=filter_text)
         finally:
             self._tree.blockSignals(False)
 
