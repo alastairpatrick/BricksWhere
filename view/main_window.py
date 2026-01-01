@@ -13,6 +13,7 @@ from PySide6.QtWidgets import (
     QTextEdit,
     QSpinBox,
     QLabel,
+    QComboBox,
     QScrollArea,
     QLineEdit as QLineEditWidget,
     QCheckBox,
@@ -45,9 +46,23 @@ class MainWindow(QMainWindow):
         # area for displaying element images and color names
         self._images_area = QScrollArea()
         self._images_area.setWidgetResizable(True)
+        # sort controls for element display
+        sort_row = QWidget()
+        sort_layout = QHBoxLayout(sort_row)
+        sort_label = QLabel("Sort by:")
+        self._sort_key_combo = QComboBox()
+        self._sort_key_combo.addItems(["Quantity", "Color"])
+        self._sort_order_combo = QComboBox()
+        self._sort_order_combo.addItems(["Descending", "Ascending"])
+        sort_layout.addWidget(sort_label)
+        sort_layout.addWidget(self._sort_key_combo)
+        sort_layout.addWidget(self._sort_order_combo)
+        self._sort_key_combo.currentIndexChanged.connect(lambda: self._apply_sort_change())
+        self._sort_order_combo.currentIndexChanged.connect(lambda: self._apply_sort_change())
         self._images_widget = QWidget()
         self._images_layout = QVBoxLayout(self._images_widget)
         self._images_area.setWidget(self._images_widget)
+        layout.addWidget(sort_row)
         layout.addWidget(self._images_area)
         self.setCentralWidget(central)
 
@@ -319,6 +334,16 @@ class MainWindow(QMainWindow):
         else:
             return
 
+        # apply element sorting if controls present
+        if hasattr(self, "_sort_key_combo"):
+            sort_key = self._sort_key_combo.currentText()
+            sort_order = self._sort_order_combo.currentText()
+            rev = sort_order == "Descending"
+            if sort_key == "Quantity":
+                elements.sort(key=lambda e: int(e.get("count", 0) or 0), reverse=rev)
+            else:
+                elements.sort(key=lambda e: (e.get("color") or "").lower(), reverse=rev)
+
         fetch_images = []
         for element in elements:
             color = element["color"]
@@ -373,6 +398,11 @@ class MainWindow(QMainWindow):
         # start polling
         self._img_poll_timer.start()
 
+    def _apply_sort_change(self):
+        """Re-render the current selection using the chosen sort options."""
+        # re-render by invoking the existing handler with the last selection
+        self._on_vm_selection_changed(self._directory_vm.get_selected())
+
     def _poll_img_queue(self):
         try:
             while True:
@@ -396,11 +426,7 @@ class MainWindow(QMainWindow):
         summary in the detail area. It's safe to call after persisting a
         `user_parts` change.
         """
-        try:
-            info = self._main_vm.get_part_detail(part_num)
-        except Exception:
-            return
-
+        info = self._main_vm.get_part_detail(part_num)
         counts = info.get("counts") or {}
         # update detail summary
         if counts:
