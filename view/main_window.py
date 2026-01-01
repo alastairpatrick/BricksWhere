@@ -253,6 +253,12 @@ class MainWindow(QMainWindow):
                 return
             colors = info.get("colors", [])
             text = f"Part: {info['part_num']}\nName: {info['name']}"
+            # include totals if available
+            counts = info.get("counts")
+            if counts:
+                tp = counts.get("total_pieces", 0)
+                te = counts.get("total_elements", 0)
+                text += f"\n\nCollection: {tp} piece(s) across {te} element(s)"
             self._detail.setPlainText(text)
             elements = info.get("elements", [])
         elif kind == "SET":
@@ -313,8 +319,16 @@ class MainWindow(QMainWindow):
             img_label = QLabel()
             img_label.setFixedSize(64, 64)
             name_label = QLabel(color)
+            # show per-color count if present
+            count = element.get("count")
+            if count is None:
+                count_text = ""
+            else:
+                count_text = f"{count} pcs"
+            count_label = QLabel(count_text)
             row_layout.addWidget(img_label)
             row_layout.addWidget(name_label)
+            row_layout.addWidget(count_label)
             self._images_layout.addWidget(row)
             fetch_images.append({"tag": img_label, "img_url": element["img_url"]})
 

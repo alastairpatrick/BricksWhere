@@ -24,14 +24,49 @@ class MainViewModel:
                 "SELECT ip.color_id, ip.img_url, c.name FROM inventory_parts ip JOIN colors c ON ip.color_id = c.id WHERE ip.part_num = ? ORDER BY c.name",
                 (part_num,),
             )
+            # build elements list (unique colors) with image urls
             elements = []
-            seen_colors = set()
+            seen_colors = {}
             for color_id, img_url, color_name in cur.fetchall():
                 if color_id in seen_colors:
                     continue
-                seen_colors.add(color_id)
-                elements.append({"color": color_name, "img_url": img_url})
-            return {"part_num": pn, "name": name, "colors": colors, "elements": elements}
+                seen_colors[color_id] = color_name
+                elements.append({"color": color_name, "img_url": img_url, "color_id": color_id})
+
+            # compute per-color quantities based on user_sets ownership
+            # For each inventory that corresponds to a set the user owns, multiply
+            # inventory_part.quantity by user_sets.quantity and sum per color
+            cur.execute(
+                """
+                SELECT ip.color_id, SUM(ip.quantity * us.quantity) as qty
+                FROM inventory_parts ip
+                JOIN inventories inv ON ip.inventory_id = inv.id
+                JOIN user_sets us ON us.set_num = inv.set_num
+                WHERE ip.part_num = ? AND us.quantity > 0
+                GROUP BY ip.color_id
+                """,
+                (part_num,),
+            )
+            per_color_qty = {row[0]: (row[1] or 0) for row in cur.fetchall()}
+
+            # attach counts to elements
+            total_pieces = 0
+            total_elements = 0
+            for el in elements:
+                cid = el.get("color_id")
+                qty = per_color_qty.get(cid, 0)
+                el["count"] = int(qty)
+                if qty > 0:
+                    total_pieces += int(qty)
+                    total_elements += 1
+
+            return {
+                "part_num": pn,
+                "name": name,
+                "colors": colors,
+                "elements": elements,
+                "counts": {"total_pieces": total_pieces, "total_elements": total_elements, "per_color": per_color_qty},
+            }
 
     def get_set_detail(self, set_num: str) -> dict:
         with connection_ctx(self.db_path) as conn, conn:
