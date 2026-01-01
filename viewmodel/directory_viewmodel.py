@@ -183,10 +183,7 @@ class DirectoryViewModel:
         """
         # cancel any existing timer
         if self._search_timer:
-            try:
-                self._search_timer.cancel()
-            except Exception:
-                pass
+            self._search_timer.cancel()
             self._search_timer = None
         self._pending_search = text
         if self._debounce_ms <= 0:
@@ -202,18 +199,12 @@ class DirectoryViewModel:
         self._pending_search = None
         self._search_timer = None
         if self._on_search_applied:
-            try:
-                self._on_search_applied(text)
-            except Exception:
-                logger.exception("Exception in on_search_applied callback")
-
+            self._on_search_applied(text)
+            
     def flush_search(self):
         """Force immediate application of pending search (testing helper)."""
         if self._search_timer:
-            try:
-                self._search_timer.cancel()
-            except Exception:
-                pass
+            self._search_timer.cancel()
             self._search_timer = None
         self._apply_search()
 
@@ -225,10 +216,7 @@ class DirectoryViewModel:
         """
         self._selected = ("PART", part_num)
         if self._on_selection_changed:
-            try:
-                self._on_selection_changed(self._selected)
-            except Exception:
-                logger.exception("Exception in on_selection_changed (PART)")
+            self._on_selection_changed(self._selected)
 
     def select_set(self, set_num: str):
         """Set the currently selected set and notify via callback.
@@ -237,10 +225,7 @@ class DirectoryViewModel:
         """
         self._selected = ("SET", set_num)
         if self._on_selection_changed:
-            try:
-                self._on_selection_changed(self._selected)
-            except Exception:
-                logger.exception("Exception in on_selection_changed (SET)")
+            self._on_selection_changed(self._selected)
 
     def get_selected(self):
         return self._selected
