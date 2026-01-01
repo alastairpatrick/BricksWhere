@@ -92,6 +92,10 @@ class MainWindow(QMainWindow):
         self._main_vm = MainViewModel(self._db_path)
         self._sync_vm = SyncViewModel(self._db_path)
 
+        # image fetcher timer
+        self._img_poll_timer = QTimer(self)
+        self._img_poll_timer.setInterval(100)
+
         # populate initial parts list
         self._populate_parts()
 
@@ -320,33 +324,29 @@ class MainWindow(QMainWindow):
             logger.exception("BackgroundImageFetcher.start raised")
             self._img_queue = None
 
-        # Ensure a timer exists to poll the fetcher queue and update UI
-        if not hasattr(self, "_img_poll_timer"):
-            self._img_poll_timer = QTimer(self)
-            self._img_poll_timer.setInterval(100)
-            def _poll():
-                try:
-                    while True:
-                        item = self._img_queue.get_nowait()
-                        if item == "ALL_DONE":
-                            self._img_poll_timer.stop()
-                            break
-                        color, img_bytes = item
-                        logger.debug("fetched image for %s, bytes=%s", color, None if img_bytes is None else len(img_bytes))
-                        row = QWidget()
-                        row_layout = QHBoxLayout(row)
-                        img_label = QLabel()
-                        img_label.setFixedSize(64, 64)
-                        if img_bytes:
-                            pix = QPixmap()
-                            pix.loadFromData(img_bytes)
-                            img_label.setPixmap(pix.scaled(64, 64, Qt.KeepAspectRatio, Qt.SmoothTransformation))
-                        name_label = QLabel(color)
-                        row_layout.addWidget(img_label)
-                        row_layout.addWidget(name_label)
-                        self._images_layout.addWidget(row)
-                except Exception:
-                    pass
-            self._img_poll_timer.timeout.connect(_poll)
+        def _poll():
+            try:
+                while True:
+                    item = self._img_queue.get_nowait()
+                    if item == "ALL_DONE":
+                        self._img_poll_timer.stop()
+                        break
+                    color, img_bytes = item
+                    logger.debug("fetched image for %s, bytes=%s", color, None if img_bytes is None else len(img_bytes))
+                    row = QWidget()
+                    row_layout = QHBoxLayout(row)
+                    img_label = QLabel()
+                    img_label.setFixedSize(64, 64)
+                    if img_bytes:
+                        pix = QPixmap()
+                        pix.loadFromData(img_bytes)
+                        img_label.setPixmap(pix.scaled(64, 64, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+                    name_label = QLabel(color)
+                    row_layout.addWidget(img_label)
+                    row_layout.addWidget(name_label)
+                    self._images_layout.addWidget(row)
+            except queue.Empty:
+                pass
+        self._img_poll_timer.timeout.connect(_poll)
         # start polling
         self._img_poll_timer.start()
