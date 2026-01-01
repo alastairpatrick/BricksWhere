@@ -119,10 +119,7 @@ class MainWindow(QMainWindow):
         # instruct the view-model to cancel when the user clicks Cancel
         dlg = SyncProgressDialog(self._sync_vm, parent=self)
         # notify listeners/tests that the dialog was created
-        try:
-            self.dialog_created.emit(dlg)
-        except Exception:
-            pass
+        self.dialog_created.emit(dlg)
 
         # run modal dialog; it will close (switch to OK) when sync finishes
         dlg.exec()
@@ -131,11 +128,7 @@ class MainWindow(QMainWindow):
         self._sync_vm.join()
 
         # refresh parts list after sync completes (success, failure, or cancel)
-        try:
-            self._populate_parts()
-        except Exception:
-            # ignore errors while refreshing UI to avoid crashing the app
-            pass
+        self._populate_parts()
 
         # re-enable action after dialog closes
         self.sync_action.setEnabled(True)
@@ -349,15 +342,18 @@ class MainWindow(QMainWindow):
             # handler to persist user part quantities
             def _make_persist(part_num, color_id, spin):
                 def _persist(v):
-                    try:
-                        self._main_vm.set_user_part(part_num, color_id, int(v))
-                    except Exception:
-                        logger.exception("Failed to persist user_part %s %s", part_num, color_id)
+                    self._main_vm.set_user_part(part_num, color_id, int(v))
+                    self._refresh_part_counts(part_num)
 
                 return _persist
 
             cid = element.get("color_id")
             user_spin.valueChanged.connect(_make_persist(key, cid, user_spin))
+
+            # attach metadata so we can refresh counts later
+            row.color_id = cid
+            row.total_label = total_label
+            row.user_spin = user_spin
 
             row_layout.addWidget(img_label)
             row_layout.addWidget(name_label)
@@ -392,3 +388,50 @@ class MainWindow(QMainWindow):
                     img_label.setPixmap(pix.scaled(64, 64, Qt.KeepAspectRatio, Qt.SmoothTransformation))
         except queue.Empty:
             pass
+
+    def _refresh_part_counts(self, part_num: str):
+        """Refresh total and user counts displayed for the currently shown part.
+
+        This updates per-row `total_label` and `user_spin` widgets and the
+        summary in the detail area. It's safe to call after persisting a
+        `user_parts` change.
+        """
+        try:
+            info = self._main_vm.get_part_detail(part_num)
+        except Exception:
+            return
+
+        counts = info.get("counts") or {}
+        # update detail summary
+        if counts:
+            tp = counts.get("total_pieces", 0)
+            te = counts.get("total_elements", 0)
+            # replace Collection: line if present
+            text = f"Part: {info.get('part_num','')}\nName: {info.get('name','')}\n\nCollection: {tp} piece(s) across {te} element(s)"
+            self._detail.setPlainText(text)
+
+        # build map color_id->element info
+        el_map = {e.get("color_id"): e for e in info.get("elements", [])}
+
+        # iterate rows and update any that have color_id metadata
+        for i in range(self._images_layout.count()):
+            w = self._images_layout.itemAt(i).widget()
+            if not w:
+                continue
+            cid = getattr(w, "color_id", None)
+            if cid is None:
+                continue
+            el = el_map.get(cid)
+            if not el:
+                # no element; clear labels
+                w.total_label.setText("")
+                w.user_spin.blockSignals(True)
+                w.user_spin.setValue(0)
+                w.user_spin.blockSignals(False)
+                continue
+            total = int(el.get("count", 0))
+            user = int(el.get("user_count", 0))
+            w.total_label.setText(f"{total} pcs" if total else "")
+            w.user_spin.blockSignals(True)
+            w.user_spin.setValue(user)
+            w.user_spin.blockSignals(False)
