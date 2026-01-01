@@ -128,7 +128,7 @@ class MainWindow(QMainWindow):
         self.sync_action.setEnabled(False)
 
         # start sync via view-model; it will create its own queue & cancel event
-        progress_q = self._sync_vm.start_async()
+        self._sync_vm.start_async()
 
         # create and show modal progress dialog which will poll the queue and
         # instruct the view-model to cancel when the user clicks Cancel
