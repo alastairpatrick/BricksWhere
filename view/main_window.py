@@ -92,6 +92,9 @@ class MainWindow(QMainWindow):
         self._main_vm = MainViewModel(self._db_path)
         self._sync_vm = SyncViewModel(self._db_path)
 
+        from .image_loader import BackgroundImageFetcher
+        self._img_fetcher = BackgroundImageFetcher(self._db_path)
+
         # image fetcher timer
         self._img_poll_timer = QTimer(self)
         self._img_poll_timer.setInterval(100)
@@ -303,26 +306,12 @@ class MainWindow(QMainWindow):
             return
 
         # cancel any running fetcher for the previous selection
-        try:
-            if hasattr(self, "_img_fetcher") and self._img_fetcher:
-                self._img_fetcher.cancel()
-                self._img_fetcher.join()
-        except Exception:
-            pass
-
-        # `elements` set above depending on selection kind contains dicts with 'img_url' and 'color'
-        from .image_loader import BackgroundImageFetcher
+        self._img_fetcher.cancel()
+        self._img_fetcher.join()
 
         # start background fetcher
-        logger.debug("about to create BackgroundImageFetcher for %d elements", len(elements))
-        self._img_fetcher = BackgroundImageFetcher(self._db_path)
-        logger.debug("BackgroundImageFetcher instance created")
-        try:
-            self._img_queue = self._img_fetcher.start(elements)
-            logger.debug("BackgroundImageFetcher.start returned queue")
-        except Exception:
-            logger.exception("BackgroundImageFetcher.start raised")
-            self._img_queue = None
+        self._img_queue = self._img_fetcher.start(elements)
+        logger.debug("BackgroundImageFetcher.start returned queue")
 
         # start polling
         self._img_poll_timer.start()
