@@ -17,7 +17,7 @@ from PySide6.QtWidgets import (
     QLineEdit as QLineEditWidget,
     QHBoxLayout,
 )
-from PySide6.QtGui import QAction
+from PySide6.QtGui import QAction, QPixmap
 from PySide6.QtCore import Signal, Qt, QTimer
 
 logger = logging.getLogger(__name__)
@@ -95,6 +95,7 @@ class MainWindow(QMainWindow):
         # image fetcher timer
         self._img_poll_timer = QTimer(self)
         self._img_poll_timer.setInterval(100)
+        self._img_poll_timer.timeout.connect(self._poll_img_queue)
 
         # populate initial parts list
         self._populate_parts()
@@ -311,7 +312,6 @@ class MainWindow(QMainWindow):
 
         # `elements` set above depending on selection kind contains dicts with 'img_url' and 'color'
         from .image_loader import BackgroundImageFetcher
-        from PySide6.QtGui import QPixmap
 
         # start background fetcher
         logger.debug("about to create BackgroundImageFetcher for %d elements", len(elements))
@@ -324,29 +324,29 @@ class MainWindow(QMainWindow):
             logger.exception("BackgroundImageFetcher.start raised")
             self._img_queue = None
 
-        def _poll():
-            try:
-                while True:
-                    item = self._img_queue.get_nowait()
-                    if item == "ALL_DONE":
-                        self._img_poll_timer.stop()
-                        break
-                    color, img_bytes = item
-                    logger.debug("fetched image for %s, bytes=%s", color, None if img_bytes is None else len(img_bytes))
-                    row = QWidget()
-                    row_layout = QHBoxLayout(row)
-                    img_label = QLabel()
-                    img_label.setFixedSize(64, 64)
-                    if img_bytes:
-                        pix = QPixmap()
-                        pix.loadFromData(img_bytes)
-                        img_label.setPixmap(pix.scaled(64, 64, Qt.KeepAspectRatio, Qt.SmoothTransformation))
-                    name_label = QLabel(color)
-                    row_layout.addWidget(img_label)
-                    row_layout.addWidget(name_label)
-                    self._images_layout.addWidget(row)
-            except queue.Empty:
-                pass
-        self._img_poll_timer.timeout.connect(_poll)
         # start polling
         self._img_poll_timer.start()
+
+    def _poll_img_queue(self):
+        try:
+            while True:
+                item = self._img_queue.get_nowait()
+                if item == "ALL_DONE":
+                    self._img_poll_timer.stop()
+                    break
+                color, img_bytes = item
+                logger.debug("fetched image for %s, bytes=%s", color, None if img_bytes is None else len(img_bytes))
+                row = QWidget()
+                row_layout = QHBoxLayout(row)
+                img_label = QLabel()
+                img_label.setFixedSize(64, 64)
+                if img_bytes:
+                    pix = QPixmap()
+                    pix.loadFromData(img_bytes)
+                    img_label.setPixmap(pix.scaled(64, 64, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+                name_label = QLabel(color)
+                row_layout.addWidget(img_label)
+                row_layout.addWidget(name_label)
+                self._images_layout.addWidget(row)
+        except queue.Empty:
+            pass
