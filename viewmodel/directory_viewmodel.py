@@ -36,19 +36,14 @@ class DirectoryViewModel:
         """
         with closing(create_connection(self.db_path)) as conn, conn:
             cur = conn.cursor()
+            sql = "SELECT DISTINCT pc.id, pc.name FROM part_categories pc JOIN parts p ON pc.id = p.part_cat_id"
             if filter_text:
-                # categories that have at least one matching part
-                cur.execute(
-                    "SELECT DISTINCT pc.id, pc.name FROM part_categories pc JOIN parts p ON pc.id = p.part_cat_id"
-                    " WHERE (p.part_num LIKE ? OR p.name LIKE ?) ORDER BY pc.name",
-                    (filter_text + "%", '%' + filter_text + '%'),
-                )
+                sql += " WHERE (p.part_num LIKE ? OR p.name LIKE ?)"
+                params = (filter_text + "%", '%' + filter_text + '%')
             else:
-                # categories that have at least one part
-                cur.execute(
-                    "SELECT DISTINCT pc.id, pc.name FROM part_categories pc JOIN parts p ON pc.id = p.part_cat_id"
-                    " ORDER BY pc.name"
-                )
+                params = ()
+            sql += " ORDER BY pc.name"
+            cur.execute(sql, params)
             rows = cur.fetchall()
             return rows
 
@@ -61,16 +56,14 @@ class DirectoryViewModel:
         """
         with closing(create_connection(self.db_path)) as conn, conn:
             cur = conn.cursor()
+            sql = "SELECT DISTINCT t.id, t.name FROM themes t JOIN sets s ON t.id = s.theme_id"
             if filter_text:
-                cur.execute(
-                    "SELECT DISTINCT t.id, t.name FROM themes t JOIN sets s ON t.id = s.theme_id"
-                    " WHERE (s.set_num LIKE ? OR s.name LIKE ?) ORDER BY t.name",
-                    (filter_text + "%", '%' + filter_text + '%'),
-                )
+                sql += " WHERE (s.set_num LIKE ? OR s.name LIKE ?)"
+                params = (filter_text + "%", '%' + filter_text + '%')
             else:
-                cur.execute(
-                    "SELECT DISTINCT t.id, t.name FROM themes t JOIN sets s ON t.id = s.theme_id ORDER BY t.name"
-                )
+                params = ()
+            sql += " ORDER BY t.name"
+            cur.execute(sql, params)
             rows = cur.fetchall()
             return rows
 
@@ -90,33 +83,17 @@ class DirectoryViewModel:
             if not expanded_theme_ids:
                 return sets_by_theme, False, per_theme_truncated
 
-            placeholders = ",".join(["?"] * len(expanded_theme_ids))
-            # overall truncated flag uses same limits as parts
-            if filter_text:
-                truncated = False
-            else:
-                # check overall with 501 limit
-                sql = f"SELECT set_num, name, theme_id FROM sets WHERE theme_id IN ({placeholders}) ORDER BY set_num LIMIT 501"
-                cur.execute(sql, expanded_theme_ids)
-                rows = cur.fetchall()
-                truncated = len(rows) > 500
-
             for theme_id in expanded_theme_ids:
+                sql = "SELECT set_num, name FROM sets WHERE theme_id = ?"
+                params = [theme_id]
                 if filter_text:
-                    cur.execute(
-                        "SELECT set_num, name FROM sets WHERE theme_id = ? AND (set_num LIKE ? OR name LIKE ?) ORDER BY set_num LIMIT 2000",
-                        (theme_id, filter_text + "%", '%' + filter_text + '%'),
-                    )
-                    rows = cur.fetchall()
-                    per_theme_truncated[theme_id] = False
-                else:
-                    cur.execute(
-                        "SELECT set_num, name FROM sets WHERE theme_id = ? ORDER BY set_num LIMIT 501",
-                        (theme_id,)
-                    )
-                    rows = cur.fetchall()
-                    per_theme_truncated[theme_id] = len(rows) > 500
-                    rows = rows[:500]
+                    sql += " AND (set_num LIKE ? OR name LIKE ?)"
+                    params.extend([filter_text + "%", '%' + filter_text + '%'])
+                sql += " ORDER BY set_num LIMIT 501"
+                cur.execute(sql, params)
+                rows = cur.fetchall()
+                per_theme_truncated[theme_id] = len(rows) > 500
+                rows = rows[:500]
 
                 sets_by_theme[theme_id] = [(sn, nm) for sn, nm in rows]
 
@@ -127,9 +104,6 @@ class DirectoryViewModel:
 
     def list_parts(self, expanded_cat_ids: List[int], filter_text: str = "") -> Tuple[object, bool]:
         """Return (rows, truncated) where truncated indicates there may be more results.
-
-        The method preserves legacy limits (500 when unfiltered, 2000 when filtered)
-        and returns a boolean flag which the view can use to show a "more" indicator.
         """
         conn = create_connection(self.db_path)
         try:
@@ -145,38 +119,17 @@ class DirectoryViewModel:
             if not expanded_cat_ids:
                 return parts_by_cat, False, per_cat_truncated
 
-            # build WHERE clause for expanded categories
-            placeholders = ",".join(["?"] * len(expanded_cat_ids))
-            if filter_text:
-                sql = f"SELECT part_num, name, part_cat_id FROM parts WHERE (part_num LIKE ? OR name LIKE ?) AND part_cat_id IN ({placeholders}) ORDER BY part_num LIMIT 2000"
-                params = [filter_text + "%", '%' + filter_text + '%'] + expanded_cat_ids
-                cur.execute(sql, params)
-                rows = cur.fetchall()
-                truncated = False
-            else:
-                sql = f"SELECT part_num, name, part_cat_id FROM parts WHERE part_cat_id IN ({placeholders}) ORDER BY part_num LIMIT 501"
-                params = expanded_cat_ids
-                cur.execute(sql, params)
-                rows = cur.fetchall()
-                truncated = len(rows) > 500
-                rows = rows[:500]
-
             for cat_id in expanded_cat_ids:
+                sql = "SELECT part_num, name FROM parts WHERE part_cat_id = ?"
+                params = [cat_id]
                 if filter_text:
-                    cur.execute(
-                        "SELECT part_num, name FROM parts WHERE part_cat_id = ? AND (part_num LIKE ? OR name LIKE ?) ORDER BY part_num LIMIT 2000",
-                        (cat_id, filter_text + "%", '%' + filter_text + '%'),
-                    )
-                    rows = cur.fetchall()
-                    per_cat_truncated[cat_id] = False
-                else:
-                    cur.execute(
-                        "SELECT part_num, name FROM parts WHERE part_cat_id = ? ORDER BY part_num LIMIT 501",
-                        (cat_id,)
-                    )
-                    rows = cur.fetchall()
-                    per_cat_truncated[cat_id] = len(rows) > 500
-                    rows = rows[:500]
+                    sql += " AND (part_num LIKE ? OR name LIKE ?)"
+                    params.extend([filter_text + "%", '%' + filter_text + '%'])
+                sql += " ORDER BY part_num LIMIT 501"
+                cur.execute(sql, params)
+                rows = cur.fetchall()
+                per_cat_truncated[cat_id] = len(rows) > 500
+                rows = rows[:500]
 
                 parts_by_cat[cat_id] = [(pn, nm) for pn, nm in rows]
 
