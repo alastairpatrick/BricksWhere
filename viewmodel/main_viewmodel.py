@@ -47,17 +47,32 @@ class MainViewModel:
                 """,
                 (part_num,),
             )
-            per_color_qty = {row[0]: (row[1] or 0) for row in cur.fetchall()}
+            set_per_color = {row[0]: (row[1] or 0) for row in cur.fetchall()}
 
-            # attach counts to elements
+            # include user_parts (loose part quantities) per color
+            cur.execute(
+                "SELECT color_id, SUM(quantity) FROM user_parts WHERE part_num = ? GROUP BY color_id",
+                (part_num,),
+            )
+            user_per_color = {row[0]: (row[1] or 0) for row in cur.fetchall()}
+
+            # combine totals: sets + user_parts
+            per_color_qty = {}
+            all_color_ids = set(list(set_per_color.keys()) + list(user_per_color.keys()) + list(seen_colors.keys()))
+            for cid in all_color_ids:
+                per_color_qty[cid] = int(set_per_color.get(cid, 0) + user_per_color.get(cid, 0))
+
+            # attach counts to elements (include both user_count and total count)
             total_pieces = 0
             total_elements = 0
             for el in elements:
                 cid = el.get("color_id")
-                qty = per_color_qty.get(cid, 0)
-                el["count"] = int(qty)
-                if qty > 0:
-                    total_pieces += int(qty)
+                user_qty = int(user_per_color.get(cid, 0))
+                total_qty = int(per_color_qty.get(cid, 0))
+                el["user_count"] = user_qty
+                el["count"] = total_qty
+                if total_qty > 0:
+                    total_pieces += total_qty
                     total_elements += 1
 
             return {
@@ -67,6 +82,25 @@ class MainViewModel:
                 "elements": elements,
                 "counts": {"total_pieces": total_pieces, "total_elements": total_elements, "per_color": per_color_qty},
             }
+
+    def set_user_part(self, part_num: str, color_id: int, quantity: int) -> None:
+        """Insert, update, or delete a `user_parts` record for a specific element.
+
+        If `quantity` is zero, the row is deleted to avoid storing zeros.
+        """
+        with connection_ctx(self.db_path) as conn, conn:
+            cur = conn.cursor()
+            cur.execute("SELECT 1 FROM user_parts WHERE part_num = ? AND color_id = ?", (part_num, color_id))
+            exists = cur.fetchone() is not None
+            if quantity == 0:
+                if exists:
+                    cur.execute("DELETE FROM user_parts WHERE part_num = ? AND color_id = ?", (part_num, color_id))
+            else:
+                if exists:
+                    cur.execute("UPDATE user_parts SET quantity = ? WHERE part_num = ? AND color_id = ?", (quantity, part_num, color_id))
+                else:
+                    cur.execute("INSERT INTO user_parts (part_num, color_id, quantity) VALUES (?,?,?)", (part_num, color_id, quantity))
+            conn.commit()
 
     def get_set_detail(self, set_num: str) -> dict:
         with connection_ctx(self.db_path) as conn, conn:

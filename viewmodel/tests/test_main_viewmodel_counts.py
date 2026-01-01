@@ -68,3 +68,28 @@ def test_get_part_detail_no_ownership(tmp_path):
     assert counts["total_elements"] == 0
     # element count fields should be present and zero
     assert info["elements"][0].get("count", 0) == 0
+
+
+def test_set_user_part_affects_totals(tmp_path):
+    db_path = str(tmp_path / "userparts.db")
+    with connection_ctx(db_path) as conn, conn:
+        create_schema(conn)
+        cur = conn.cursor()
+        cur.execute("INSERT INTO colors (id, name) VALUES (?,?)", (1, "Black"))
+        cur.execute("INSERT INTO parts (part_num, name, part_cat_id) VALUES (?,?,?)", ("P3", "Thing", None))
+        cur.execute("INSERT INTO inventories (id, version, set_num) VALUES (?,?,?)", (1, 1, "S1"))
+        cur.execute("INSERT INTO inventory_parts (inventory_id, part_num, color_id, quantity, is_spare, img_url) VALUES (?,?,?,?,?,?)", (1, "P3", 1, 2, 0, ""))
+        cur.execute("INSERT INTO user_sets (set_num, quantity, remark) VALUES (?,?,?)", ("S1", 1, ""))
+
+    vm = MainViewModel(db_path)
+    # initially total should be 2 (from set)
+    info = vm.get_part_detail("P3")
+    assert info["counts"]["total_pieces"] == 2
+
+    # add 3 loose parts via set_user_part
+    vm.set_user_part("P3", 1, 3)
+    info = vm.get_part_detail("P3")
+    # now total should be 5
+    assert info["counts"]["total_pieces"] == 5
+    # user_count should be reflected on element
+    assert any(e.get("user_count", 0) == 3 for e in info["elements"]) is True

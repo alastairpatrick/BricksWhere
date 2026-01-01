@@ -60,6 +60,11 @@ SCHEMA = {
         ("quantity", "INTEGER", False),
         ("remark", "TEXT", False),
     ],
+    "user_parts": [
+        ("part_num", "TEXT", True),
+        ("color_id", "INTEGER", True),
+        ("quantity", "INTEGER", False),     # can be negative for sold/lost/etc parts
+    ],
     "minifigs": [("fig_num", "TEXT", True), ("name", "TEXT", False), ("num_parts", "INTEGER", False), ("img_url", "TEXT", False)],
     "inventories": [("id", "INTEGER", True), ("version", "INTEGER", False), ("set_num", "TEXT", False)],
     "inventory_parts": [

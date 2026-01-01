@@ -319,16 +319,35 @@ class MainWindow(QMainWindow):
             img_label = QLabel()
             img_label.setFixedSize(64, 64)
             name_label = QLabel(color)
-            # show per-color count if present
-            count = element.get("count")
-            if count is None:
-                count_text = ""
-            else:
-                count_text = f"{count} pcs"
-            count_label = QLabel(count_text)
+            # total count (sets + user_parts)
+            total = element.get("count", 0)
+            total_label = QLabel(f"{total} pcs" if total else "")
+            # user-editable quantity (from user_parts)
+            user_qty = element.get("user_count", 0)
+            user_spin = QSpinBox()
+            user_spin.setMinimum(0)
+            user_spin.setMaximum(999999)
+            user_spin.blockSignals(True)
+            user_spin.setValue(user_qty)
+            user_spin.blockSignals(False)
+
+            # handler to persist user part quantities
+            def _make_persist(part_num, color_id, spin):
+                def _persist(v):
+                    try:
+                        self._main_vm.set_user_part(part_num, color_id, int(v))
+                    except Exception:
+                        logger.exception("Failed to persist user_part %s %s", part_num, color_id)
+
+                return _persist
+
+            cid = element.get("color_id")
+            user_spin.valueChanged.connect(_make_persist(key, cid, user_spin))
+
             row_layout.addWidget(img_label)
             row_layout.addWidget(name_label)
-            row_layout.addWidget(count_label)
+            row_layout.addWidget(total_label)
+            row_layout.addWidget(user_spin)
             self._images_layout.addWidget(row)
             fetch_images.append({"tag": img_label, "img_url": element["img_url"]})
 
