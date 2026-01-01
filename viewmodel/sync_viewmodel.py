@@ -48,6 +48,14 @@ class SyncViewModel:
                 cur.execute("SELECT count(*) FROM parts")
                 after_parts = cur.fetchone()[0]
                 new_parts = max(0, after_parts - before_parts)
+                # update SQLite query planner statistics and perform DB optimizations
+                try:
+                    enqueue("INFO: Running ANALYZE to update query planner statistics")
+                    cur.execute("ANALYZE")
+                except Exception:
+                    # ANALYZE may not be available or could fail; log a message but don't abort
+                    enqueue("WARN: ANALYZE failed or unsupported on this SQLite build")
+
                 enqueue(f"SUMMARY: Sync complete — {new_parts} new parts added")
             except SyncCancelled:
                 enqueue("SUMMARY: Sync cancelled")
