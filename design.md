@@ -9,14 +9,13 @@ We use the term "bin" for a physical container (bag, tray, drawer, box, etc.). E
 A LEGO set contains a fixed collection of elements (parts in particular colors). Users can "part out" a set — moving the elements from the set into their bins — and may add or update bins as needed.
 # Main Features
 The primary features are:
-- Navigate the replica of Rebrickable tables in a user-friendly tree and search UI.
-- Display images (for the selected part or set) using the HTTP cache and background fetching.
+- Maintain a local replica of the Rebrickable CSV data with some local tables containing persistent user provided data
 - Allow users to annotate replica data with persistent user data stored in application tables (for example `user_sets`).
+- Display tables and views of the database using an edittable spreadsheet like user interace
+- Display images (for the selected part or set) using the HTTP cache and background fetching.
 - Produce printable reports that list bins and elements to retrieve.
-- Track sets the user owns and compute aggregate part quantities across the collection.
-- Allow the user to add or remove elements from their collection manually and persist those changes.
 # Dependencies
-The application is implemented in Python. The UI uses Qt via PySide6. The local database is SQLite. Additional runtime libraries in the repository include `requests-cache` (optional) for HTTP response caching. BricksWhere is distributed under the MIT license and dependencies should be license-compatible.
+The application is implemented in Python. The UI uses Qt via PySide6. The local database is SQLite. Additional runtime libraries in the repository include `requests-cache` for HTTP response caching. BricksWhere is distributed under the MIT license and dependencies should be license-compatible.
 # Database
 ## Local Replica
 The application uses a local SQLite database that contains three broad categories of tables:
@@ -36,14 +35,9 @@ The project uses Model-View-ViewModel (MVVM). Business logic, I/O, and data stor
 Tests are organized alongside the code under `model/tests/`, `viewmodel/tests/`, and `view/tests/`. The test suite uses `pytest` and may use `pytest-qt` for UI tests; note that Qt-based tests are inherently more complex and may be flaky in some environments.
 # User Interface
 Many UI widgets must be updated after a synchronization or when the user changes persistent data. The implementation uses view-models to keep views thin and testable; view-models notify views via callbacks or signals so UI components can update themselves.
-The codebase exposes application-level hooks and testing helpers (for example `DirectoryViewModel.flush_search()` and a dialog-created signal on `MainWindow`) to facilitate deterministic unit tests of UI-related behavior.
+The codebase exposes application-level hooks and testing helpers and a dialog-created signal on `MainWindow`) to facilitate deterministic unit tests of UI-related behavior.
 ## Synchronization Progress Dialog
 While synchronizing with Rebrickable the application shows a progress dialog with a message list and progress bar. The dialog provides a Cancel button; requesting cancel causes the synchronization to stop and the database changes to be rolled back. When synchronization completes (successfully, failed, or cancelled) the dialog switches to an OK state and can be dismissed.
-## Directory Window
-The Directory panel (docked on the left by default) contains a tree with top-level "Parts" and "Sets" nodes and a search control. Expanding categories or themes causes the app to request items only for the expanded groups to keep SQL queries efficient. The search box supports a debounced API: part and set numbers use a "starts with" search while names use substring matching. Categories/themes that contain no matching items are not shown.
-## Main Window
-The main panel displays details depending on the Directory selection. For a part selection, the UI shows the part number, name, a list of available element colors, and images for those elements. For a set selection, the UI shows the set number, name, and the set image. When a set is selected, the UI also presents editable user fields (quantity and remark) persisted to the `user_sets` table.
-Images for the selected elements are fetched in a background thread by `BackgroundImageFetcher` (in `view/image_loader.py`) and delivered to the UI via a `queue.Queue`. The UI polls the queue using a `QTimer` and updates the image area as results arrive. The UI cancels and joins any previous fetcher when the selection changes.
 # Security
 Treat external files (downloads from Rebrickable or files opened by the user) as untrusted. The codebase defends against SQL injection by:
 - validating identifiers used to build SQL statements (see `model.db.sanitize_identifier`),
