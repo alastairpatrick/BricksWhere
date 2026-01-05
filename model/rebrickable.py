@@ -118,9 +118,8 @@ def sync_all(conn, urls: Iterable[str] = None, progress: Callable[[str], None] =
             name = urlparse(u).path.split('/')[-1]
             mapped.append(_DEV_BASE + name)
         urls = mapped
-    try:
-        # begin a transaction that covers all table updates so we can rollback on cancel
-        conn.execute("BEGIN")
+        
+    with conn:
         for u in urls:
             if is_cancelled is not None and is_cancelled():
                 raise SyncCancelled()
@@ -129,11 +128,3 @@ def sync_all(conn, urls: Iterable[str] = None, progress: Callable[[str], None] =
             sync_table_from_url(conn, u, is_cancelled=is_cancelled)
             if progress:
                 progress(f"Done {u}")
-        conn.commit()
-    except Exception:
-        # rollback any partial changes
-        try:
-            conn.rollback()
-        except Exception:
-            pass
-        raise

@@ -1,5 +1,5 @@
-import sqlite3
 import pytest
+import threading
 from model.db import create_connection
 from model import rebrickable
 
@@ -55,7 +55,7 @@ def test_sync_cancel_rollback(monkeypatch, sqlite_db):
     # verify that cancelling a sync causes a rollback (no partial writes)
     db, conn = sqlite_db
 
-    cancel_event = __import__('threading').Event()
+    cancel_event = threading.Event()
 
     # fake download: produce one row then request cancellation
     def fake_download(url):
