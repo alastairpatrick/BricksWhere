@@ -1,82 +1,69 @@
-import queue
-import threading
 from model.rebrickable import SyncCancelled
-from viewmodel import  SyncViewModel
-
-
+from viewmodel import SyncViewModel
+from concurrent.futures import ThreadPoolExecutor
+import threading
 import pytest
 
 
 @pytest.mark.schema
-def test_sync_viewmodel_runs_and_reports(sqlite_db):
+def test_sync_viewmodel_runs_and_reports(monkeypatch, sqlite_db):
     db, conn = sqlite_db
 
-    msgs = []
-
-    def fake_sync(conn, progress, cancel_event):
+    def fake_sync(conn_arg, urls, progress, is_cancelled):
         # simulate writing a part and reporting progress
         progress("Downloading colors.csv.gz")
-        cur = conn.cursor()
+        cur = conn_arg.cursor()
         cur.execute("INSERT INTO parts (part_num, name) VALUES (?,?)", ("PX", "TestPart"))
-        conn.commit()
+        conn_arg.commit()
         progress("Finished colors")
 
-    vm = SyncViewModel(str(db), sync_func=fake_sync)
-    q = queue.Queue()
-    cancel = threading.Event()
-    vm.sync(q, cancel)
+    # patch the sync_all used by SyncViewModel
+    import viewmodel.sync_viewmodel as svmod
+    monkeypatch.setattr(svmod, "sync_all", fake_sync)
 
-    # drain queue
-    while not q.empty():
-        msgs.append(q.get_nowait())
+    collected = []
+    def progress_cb(msg):
+        collected.append(msg)
 
-    assert any(m.startswith("Downloading") for m in msgs)
-    assert "ALL_DONE" in msgs
+    executor = ThreadPoolExecutor(max_workers=1)
+    vm = SyncViewModel(str(db), executor)
+    # run synchronously for test
+    vm.start_sync(progress_cb, lambda: False)
 
-
-@pytest.mark.schema
-def test_syncviewmodel_start_async_and_join(sqlite_db):
-    db, conn = sqlite_db
-
-    def fake_sync(conn, progress, cancel_event):
-        progress("A")
-        progress("B")
-
-    vm = SyncViewModel(str(db), sync_func=fake_sync)
-    q = vm.start_async()
-
-    msgs = []
-    while True:
-        try:
-            msgs.append(q.get(timeout=0.5))
-            if msgs[-1] == "ALL_DONE":
-                break
-        except Exception:
-            break
-
-    # wait for thread to finish
-    vm.join()
-    assert any(m == "A" for m in msgs)
-    assert any(m == "B" for m in msgs)
+    assert any(m.startswith("Downloading") for m in collected)
 
 
 @pytest.mark.schema
-def test_syncviewmodel_cancel(sqlite_db):
+def test_syncviewmodel_cancel(monkeypatch, sqlite_db):
     db, conn = sqlite_db
 
-    def fake_sync(conn, progress, cancel_event):
+    def fake_sync(conn_arg, urls, progress, is_cancelled):
         # block until cancel requested
-        while not cancel_event.is_set():
+        while not is_cancelled():
             pass
         raise SyncCancelled()
 
-    vm = SyncViewModel(str(db), sync_func=fake_sync)
-    q = vm.start_async()
+    import viewmodel.sync_viewmodel as svmod
+    monkeypatch.setattr(svmod, "sync_all", fake_sync)
+
+    collected = []
+    def progress_cb(msg):
+        collected.append(msg)
+
+    executor = ThreadPoolExecutor(max_workers=1)
+    vm = SyncViewModel(str(db), executor)
+
+    cancel_event = threading.Event()
+
+    # run start_sync in a background thread so we can cancel it
+    def runner():
+        vm.start_sync(progress_cb, cancel_event.is_set)
+
+    t = threading.Thread(target=runner)
+    t.start()
     # request cancellation
-    vm.cancel()
-    vm.join()
-    # ensure ALL_DONE present and CANCELLED was sent
-    items = []
-    while not q.empty():
-        items.append(q.get_nowait())
-    assert "ALL_DONE" in items
+    cancel_event.set()
+    t.join(timeout=2)
+
+    # ensure progress includes SUMMARY: Sync cancelled (emitted by start_sync)
+    assert any("SUMMARY: Sync cancelled" in m for m in collected)

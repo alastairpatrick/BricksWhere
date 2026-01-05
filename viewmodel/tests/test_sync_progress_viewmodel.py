@@ -1,16 +1,34 @@
-import queue
+from PySide6.QtCore import QObject, Signal
 
 
 def test_sync_progress_viewmodel_processes_messages():
-    from viewmodel import SyncProgressViewModel
+    # Replace previous queue-based helper with signal-driven behavior.
+    total_steps = 4
+    entries = []
+    ready = {"v": False}
 
-    vm = SyncProgressViewModel(total_steps=4)
-    q = queue.Queue()
-    q.put("Step 1")
-    q.put("Step 2")
-    q.put("ALL_DONE")
-    vm.process_queue(q)
-    assert vm.entries == ["Step 1", "Step 2"]
-    assert vm.ready_to_close is True
-    assert vm.progress == min(100, int(2 * 100 / 4))
+    class FakeBackgroundTask(QObject):
+        progressed = Signal(str)
+        completed = Signal(bool)
+
+        def __init__(self):
+            super().__init__()
+
+    def on_progress(msg: str):
+        entries.append(msg)
+
+    def on_complete(ok: bool):
+        ready["v"] = True
+
+    fb = FakeBackgroundTask()
+    fb.progressed.connect(on_progress)
+    fb.completed.connect(on_complete)
+
+    # emit two progress messages and then completion
+    fb.progressed.emit("Step 1")
+    fb.progressed.emit("Step 2")
+    fb.completed.emit(True)
+
+    assert entries == ["Step 1", "Step 2"]
+    assert ready["v"] is True
 

@@ -66,7 +66,7 @@ def test_sync_cancel_rollback(monkeypatch, sqlite_db):
     urls = ["https://cdn.rebrickable.com/media/downloads/colors.csv.gz", "https://cdn.rebrickable.com/media/downloads/parts.csv.gz"]
     import pytest
     with pytest.raises(rebrickable.SyncCancelled):
-        rebrickable.sync_all(conn, urls=urls, progress=lambda m: None, cancel_event=cancel_event)
+        rebrickable.sync_all(conn, urls=urls, progress=lambda m: None, is_cancelled=cancel_event.is_set)
 
     # ensure colors table is empty because transaction should have been rolled back
     cur = conn.cursor()

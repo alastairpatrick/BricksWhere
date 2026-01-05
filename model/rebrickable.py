@@ -4,7 +4,6 @@ import gzip
 import io
 import csv
 from typing import Iterable, Callable
-import threading
 from urllib.parse import urlparse
 from .db import TABLES, bulk_replace_table
 
@@ -89,7 +88,7 @@ def download_csv_rows(url: str) -> Iterable[list[str]]:
             yield row
 
 
-def sync_table_from_url(conn, url: str, cancel_event: threading.Event = None) -> None:
+def sync_table_from_url(conn, url: str, is_cancelled: Callable = None) -> None:
     """Synchronize a single table from a Rebrickable CSV URL.
 
     Only columns present in our SCHEMA are kept; others are ignored.
@@ -99,12 +98,12 @@ def sync_table_from_url(conn, url: str, cancel_event: threading.Event = None) ->
     rows = download_csv_rows(url)
     columns = next(rows)  # header row
     def progress(count):
-        if cancel_event is not None and cancel_event.is_set():
+        if is_cancelled is not None and is_cancelled():
             raise SyncCancelled()
 
     bulk_replace_table(conn, table, columns, rows, progress=progress)
 
-def sync_all(conn, urls: Iterable[str] = None, progress: Callable[[str], None] = None, cancel_event: threading.Event = None) -> None:
+def sync_all(conn, urls: Iterable[str] = None, progress: Callable[[str], None] = None, is_cancelled: Callable = None) -> None:
     """Synchronize all tables in `urls` sequentially.
 
     `progress` is an optional callback that receives status messages.
@@ -123,11 +122,11 @@ def sync_all(conn, urls: Iterable[str] = None, progress: Callable[[str], None] =
         # begin a transaction that covers all table updates so we can rollback on cancel
         conn.execute("BEGIN")
         for u in urls:
-            if cancel_event is not None and cancel_event.is_set():
+            if is_cancelled is not None and is_cancelled():
                 raise SyncCancelled()
             if progress:
                 progress(f"Syncing {u}...")
-            sync_table_from_url(conn, u, cancel_event=cancel_event)
+            sync_table_from_url(conn, u, is_cancelled=is_cancelled)
             if progress:
                 progress(f"Done {u}")
         conn.commit()

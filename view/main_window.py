@@ -1,3 +1,4 @@
+from concurrent.futures import ThreadPoolExecutor
 import logging
 from PySide6.QtWidgets import QMainWindow
 from PySide6.QtGui import QAction
@@ -15,8 +16,10 @@ class MainWindow(QMainWindow):
 
     def __init__(self, db_path: str = "data.db"):
         super().__init__()
-        self.setWindowTitle("BricksWhere")
         self._db_path = db_path
+        self._executor = ThreadPoolExecutor(max_workers=2)
+
+        self.setWindowTitle("BricksWhere")
 
         # Menu -> Tools -> Resynchronize with Rebrickable
         tools = self.menuBar().addMenu("Tools")
@@ -24,7 +27,7 @@ class MainWindow(QMainWindow):
         self.sync_action.triggered.connect(self.start_sync)
         tools.addAction(self.sync_action)
 
-        self._sync_vm = SyncViewModel(self._db_path)
+        self._sync_vm = SyncViewModel(self._db_path, self._executor)
 
     def start_sync(self):
         self.sync_action.setEnabled(False)
@@ -40,9 +43,6 @@ class MainWindow(QMainWindow):
 
         # run modal dialog; it will close (switch to OK) when sync finishes
         dlg.exec()
-
-        # ensure sync thread is finished before refreshing UI
-        self._sync_vm.join()
 
         # re-enable action after dialog closes
         self.sync_action.setEnabled(True)

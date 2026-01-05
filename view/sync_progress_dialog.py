@@ -1,3 +1,4 @@
+import logging
 from PySide6.QtWidgets import (
     QDialog,
     QPushButton,
@@ -6,9 +7,9 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QVBoxLayout,
 )
-from PySide6.QtCore import Signal, QTimer
+from PySide6.QtCore import Signal
 
-from viewmodel import SyncProgressViewModel
+logger = logging.getLogger(__name__)
 
 
 class SyncProgressDialog(QDialog):
@@ -21,7 +22,6 @@ class SyncProgressDialog(QDialog):
         self.setModal(True)
         self.resize(400, 300)
         self._sync_vm = sync_vm
-        self._q = sync_vm.progress_queue
 
         self._list = QListWidget()
         self._progress = QProgressBar()
@@ -39,17 +39,14 @@ class SyncProgressDialog(QDialog):
         layout.addLayout(btn_layout)
         self.setLayout(layout)
 
-        self._progress_vm = SyncProgressViewModel()
-        self._timer = QTimer(self)
-        self._timer.setInterval(200)
-        self._timer.timeout.connect(self.process_queue_once)
-        self._timer.start()
+        sync_vm.background_task.progressed.connect(self._on_progress)
+        sync_vm.background_task.completed.connect(self._on_complete)
         
     def _on_cancel(self):
         # request cancel from the view-model and update UI
         self._cancel_btn.setEnabled(False)
         try:
-            self._sync_vm.cancel()
+            self._sync_vm.background_task.cancel()
         except Exception:
             pass
         self._list.addItem("Cancellation requested; finishing current download and rolling back...")
@@ -69,29 +66,25 @@ class SyncProgressDialog(QDialog):
         except Exception:
             pass
 
-    def _poll(self):
-        # let view-model process available messages
-        self._progress_vm.process_queue(self._q)
-        # refresh UI list from view-model state
-        self._list.clear()
-        for e in self._progress_vm.entries:
-            self._list.addItem(e)
+    def _on_progress(self, msg: str):
+        # append message to list and update progress bar
+        self._list.addItem(msg)
 
-            # So user can see latest progress, auto-scroll if already at bottom
-            scrollbar = self._list.verticalScrollBar()
-            if scrollbar.value() == scrollbar.maximum():
-                self._list.scrollToBottom()
+        # So user can see latest progress, auto-scroll if already at bottom
+        scrollbar = self._list.verticalScrollBar()
+        if scrollbar.value() == scrollbar.maximum():
+            self._list.scrollToBottom()
 
-        self._progress.setValue(self._progress_vm.progress)
-        if self._progress_vm.ready_to_close:
-            self._timer.stop()
-            self._switch_to_ok()
+        current_count = self._list.count()
+        total_count = 26  # assuming 26 total steps
+        if current_count > total_count:
+            logger.warning(
+                "More progress messages (%d) than expected total (%d)", current_count, total_count
+            )
 
-    def process_queue_once(self):
-        """Process any pending messages in the progress queue once.
+        progress_pct = min(100, current_count * 100 / total_count)  # assuming 12 total steps
+        self._progress.setValue(progress_pct)
 
-        This is a public helper to allow deterministic unit tests to drive the
-        queue processing without relying on QTimer.
-        """
-        # reuse internal logic implemented in _poll
-        return self._poll()
+    def _on_complete(self, success: bool):
+        # switch Cancel button to OK
+        self._switch_to_ok()
