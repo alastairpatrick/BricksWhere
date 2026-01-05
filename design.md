@@ -9,7 +9,7 @@ We use the term "bin" for a physical container (bag, tray, drawer, box, etc.). E
 A LEGO set contains a fixed collection of elements (parts in particular colors). Users can "part out" a set — moving the elements from the set into their bins — and may add or update bins as needed.
 # Main Features
 The primary features are:
-- Maintain a local replica of the Rebrickable CSV data with some local tables containing persistent user provided data
+- Maintain a local replica of the Rebrickable CSV data along with some local tables containing persistent user provided data
 - Allow users to annotate replica data with persistent user data stored in application tables (for example `user_sets`).
 - Display tables and views of the database using an edittable spreadsheet like user interace
 - Display images (for the selected part or set) using the HTTP cache and background fetching.
@@ -31,11 +31,11 @@ Key application tables include `user_sets` (see below) and the replica tables us
 Images and other HTTP resources are fetched on demand and cached locally. The application uses `requests-cache` (when available) with a SQLite backend so cached HTTP responses are persisted in the application's database file. This reduces repeated downloads and respects HTTP cache headers when possible. The code falls back to `requests` if `requests-cache` is not installed.
 Note: the current implementation uses the application DB path as the cache backing store via `requests_cache.CachedSession(cache_name=db_path, backend='sqlite')`. This is an implementation detail; the important design point is that HTTP responses are cached persistently and reused across runs.
 # Architecture
-The project uses Model-View-ViewModel (MVVM). Business logic, I/O, and data storage live in `model/`. UI orchestration and testable presentation logic live in `viewmodel/`. UI widgets live in `view/` and should be thin; views interact with view-models through callbacks, signals, and small public APIs.
+The project uses Model-View-ViewModel (MVVM). Business logic, I/O, and data storage live in `model/`. UI orchestration and testable presentation logic live in `viewmodel/`. UI widgets live in `view/` and should be thin; views interact with view-models through callbacks, signals, and small public APIs. The BackgroundTask class allows the view-model to perform long running tasks while the GUI remains responsive.
 Tests are organized alongside the code under `model/tests/`, `viewmodel/tests/`, and `view/tests/`. The test suite uses `pytest` and may use `pytest-qt` for UI tests; note that Qt-based tests are inherently more complex and may be flaky in some environments.
 # User Interface
-Many UI widgets must be updated after a synchronization or when the user changes persistent data. The implementation uses view-models to keep views thin and testable; view-models notify views via callbacks or signals so UI components can update themselves.
-The codebase exposes application-level hooks and testing helpers and a dialog-created signal on `MainWindow`) to facilitate deterministic unit tests of UI-related behavior.
+Many UI widgets must be updated after a synchronization or when the user changes persistent data. The implementation uses view-models to keep views thin and testable; view-models notify views via signals so UI components can update themselves.
+The codebase exposes application-level hooks and testing helpers to facilitate deterministic unit tests of UI-related behavior.
 ## Synchronization Progress Dialog
 While synchronizing with Rebrickable the application shows a progress dialog with a message list and progress bar. The dialog provides a Cancel button; requesting cancel causes the synchronization to stop and the database changes to be rolled back. When synchronization completes (successfully, failed, or cancelled) the dialog switches to an OK state and can be dismissed.
 # Security

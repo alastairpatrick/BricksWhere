@@ -11,8 +11,6 @@ from viewmodel import SyncViewModel
 
 
 class MainWindow(QMainWindow):
-    # emitted when a sync dialog is created; test hook for deterministic tests
-    dialog_created = Signal(object)
 
     def __init__(self, db_path: str = "data.db"):
         super().__init__()
@@ -38,8 +36,6 @@ class MainWindow(QMainWindow):
         # create and show modal progress dialog which will poll the queue and
         # instruct the view-model to cancel when the user clicks Cancel
         dlg = SyncProgressDialog(self._sync_vm, parent=self)
-        # notify listeners/tests that the dialog was created
-        self.dialog_created.emit(dlg)
 
         # run modal dialog; it will close (switch to OK) when sync finishes
         dlg.exec()
