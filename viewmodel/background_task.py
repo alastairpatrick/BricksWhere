@@ -11,11 +11,12 @@ class BackgroundTask(QObject):
     """Runs a background function in a thread pool, while updating updating GUI via signals."""
     progressed = Signal(str)
     completed = Signal(bool)
-    _progress_q = queue.Queue()
-    _cancel_event = threading.Event()
-
+    
     def __init__(self, executor: ThreadPoolExecutor, name = "Background task", poll_interval: int = 200):
         super().__init__()
+        self._progress_q = queue.Queue()
+        self._cancel_event = threading.Event()
+
         self._executor = executor
         self._name = name
         self._timer = QTimer()
