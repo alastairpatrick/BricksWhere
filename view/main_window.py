@@ -18,6 +18,16 @@ from .add_bin_viewmodel import AddBinViewModel
 
 class MainWindow(QMainWindow):
 
+    def _add_table_with_buttons(self, layout, table, add_btn, del_btn):
+        """Attach `table` to `layout` and add a right-aligned add/delete button row."""
+        layout.addWidget(table)
+        btns = QHBoxLayout()
+        btns.addStretch()
+        btns.addWidget(add_btn)
+        btns.addWidget(del_btn)
+        layout.addLayout(btns)
+
+
     def __init__(self, db_path: str = "data.db", dialog_provider=None):
         super().__init__()
         self._db_path = db_path
@@ -45,15 +55,10 @@ class MainWindow(QMainWindow):
         self._sets_table.setSelectionBehavior(QAbstractItemView.SelectRows)
         self._sets_table.setSelectionMode(QAbstractItemView.SingleSelection)
         # model provided below
-        sets_layout.addWidget(self._sets_table)
-
+        # add table and standard right-aligned Add/Delete buttons
         self._add_set_btn = QPushButton("Add")
         self._del_set_btn = QPushButton("Delete")
-        sets_btns = QHBoxLayout()
-        sets_btns.addStretch()
-        sets_btns.addWidget(self._add_set_btn)
-        sets_btns.addWidget(self._del_set_btn)
-        sets_layout.addLayout(sets_btns)
+        self._add_table_with_buttons(sets_layout, self._sets_table, self._add_set_btn, self._del_set_btn)
 
         # Placeholder tab
         self._placeholder_tab = QWidget()
@@ -71,14 +76,9 @@ class MainWindow(QMainWindow):
         self._bins_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self._bins_table.setSortingEnabled(True)
         self._bins_model.load()
-        bins_layout.addWidget(self._bins_table)
-        bins_btns = QHBoxLayout()
         add_bin_btn = QPushButton("Add")
         del_bin_btn = QPushButton("Delete")
-        bins_btns.addStretch()
-        bins_btns.addWidget(add_bin_btn)
-        bins_btns.addWidget(del_bin_btn)
-        bins_layout.addLayout(bins_btns)
+        self._add_table_with_buttons(bins_layout, self._bins_table, add_bin_btn, del_bin_btn)
         add_bin_btn.clicked.connect(self._on_add_bin)
         del_bin_btn.clicked.connect(self._on_delete_bin)
         self._tab_widget.addTab(self._bins_tab, "Bins")
