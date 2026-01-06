@@ -40,11 +40,12 @@ def test_sets_table_shows_rows(monkeypatch, make_window, tmp_path):
     monkeypatch.setattr(mw, "SetsViewModel", FakeSetsVM)
     win = make_window("db_sets")
 
-    # table should have been populated
+    # table should have been populated via model
     tbl = win._sets_table
-    assert tbl.rowCount() == 2
-    assert tbl.item(0, 0).text() == "S1"
-    assert tbl.item(0, 1).text() == "One"
+    model = tbl.model()
+    assert model.rowCount() == 2
+    assert model.data(model.index(0, 0)) == "S1"
+    assert model.data(model.index(0, 1)) == "One"
 
 
 def test_add_duplicate_shows_error(monkeypatch, make_window):
@@ -68,5 +69,23 @@ def test_add_duplicate_shows_error(monkeypatch, make_window):
     win._sets_vm = FakeSetsVM()
     # call handler which will attempt to add and trigger QMessageBox.critical via duplicate
     win._on_add_set()
+    # model reloaded after add attempt
+    model = win._sets_table.model()
     # ensure the fake message box captured something or no exception occurred
     assert called["msg"] is None or isinstance(called["msg"], str)
+
+
+def test_delete_removes_row(monkeypatch, make_window):
+    import view.main_window as mw
+
+    monkeypatch.setattr(mw, "SetsViewModel", FakeSetsVM)
+    win = make_window("db_sets_del")
+    tbl = win._sets_table
+    model = tbl.model()
+    assert model.rowCount() == 2
+    # select first row in the view and call delete
+    tbl.selectRow(0)
+    win._on_delete_set()
+    # model should have reloaded and show one row
+    assert model.rowCount() == 1
+    assert model.data(model.index(0, 0)) == "S2"

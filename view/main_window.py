@@ -1,6 +1,6 @@
 from concurrent.futures import ThreadPoolExecutor
 import logging
-from PySide6.QtWidgets import QMainWindow, QTabWidget, QTableWidget, QTableWidgetItem, QPushButton, QHeaderView, QMessageBox, QVBoxLayout, QWidget, QHBoxLayout
+from PySide6.QtWidgets import QMainWindow, QTabWidget, QTableView, QPushButton, QHeaderView, QMessageBox, QVBoxLayout, QWidget, QHBoxLayout, QAbstractItemView
 from PySide6.QtGui import QAction
 from PySide6.QtCore import Signal, Qt
 import sqlite3
@@ -35,11 +35,12 @@ class MainWindow(QMainWindow):
         # Sets tab
         self._sets_tab = QWidget()
         sets_layout = QVBoxLayout(self._sets_tab)
-        self._sets_table = QTableWidget()
-        self._sets_table.setColumnCount(4)
-        self._sets_table.setHorizontalHeaderLabels(["Set Number", "Name", "Quantity", "Remark"])
-        self._sets_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
-        self._sets_table.setSortingEnabled(True)
+        # use QTableView with a QAbstractTableModel for performance and testability
+        self._sets_table = QTableView()
+        # select whole rows when clicked to make delete behavior intuitive
+        self._sets_table.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self._sets_table.setSelectionMode(QAbstractItemView.SingleSelection)
+        # model provided below
         sets_layout.addWidget(self._sets_table)
 
         btn_row = QWidget()
@@ -64,6 +65,15 @@ class MainWindow(QMainWindow):
 
         self._sets_vm = SetsViewModel(self._db_path)
 
+        # table model
+        from .sets_table_model import SetsTableModel
+        self._sets_model = SetsTableModel(self._sets_vm)
+        self._sets_table.setModel(self._sets_model)
+        self._sets_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self._sets_table.setSortingEnabled(True)
+        # load initial data
+        self._sets_model.load()
+
         # dialog provider is a callable(parent, title, label) -> (text, ok)
         if dialog_provider is None:
             def _default_dialog_provider(parent, title, label):
@@ -76,13 +86,12 @@ class MainWindow(QMainWindow):
         else:
             self._dialog_provider = dialog_provider
 
-        # populate initial sets table
-        self._populate_sets_table()
-
         # wire up sets table handlers
-        self._sets_table.itemChanged.connect(self._on_sets_item_changed)
+        # editing is handled by the model which persists via the SetsViewModel
+        # provide add/delete button handlers that operate via the viewmodel and reload model
         self._add_set_btn.clicked.connect(self._on_add_set)
         self._del_set_btn.clicked.connect(self._on_delete_set)
+        # Note: previously we used itemChanged; model persists changes automatically
 
     def start_sync(self):
         self.sync_action.setEnabled(False)
@@ -101,56 +110,7 @@ class MainWindow(QMainWindow):
         self.sync_action.setEnabled(True)
         # sync dialog handled above; nothing else needed here
 
-    def _populate_sets_table(self, order_by: str = "set_num", descending: bool = False):
-        try:
-            rows = self._sets_vm.list_user_sets(order_by=order_by, descending=descending)
-        except Exception:
-            rows = []
-        self._sets_table.blockSignals(True)
-        self._sets_table.setRowCount(0)
-        for r in rows:
-            row = self._sets_table.rowCount()
-            self._sets_table.insertRow(row)
-            # Set Number editable
-            item0 = QTableWidgetItem(r.get("set_num", ""))
-            item0.setFlags(item0.flags() & ~Qt.ItemIsEditable)
-            self._sets_table.setItem(row, 0, item0)
-            # Name non-editable
-            item1 = QTableWidgetItem(r.get("name", ""))
-            item1.setFlags(item1.flags() & ~Qt.ItemIsEditable)
-            self._sets_table.setItem(row, 1, item1)
-            # Quantity editable
-            item2 = QTableWidgetItem(str(r.get("quantity", 0)))
-            item2.setFlags(item2.flags() | Qt.ItemIsEditable)
-            self._sets_table.setItem(row, 2, item2)
-            # Remark editable
-            item3 = QTableWidgetItem(r.get("remark", ""))
-            item3.setFlags(item3.flags() | Qt.ItemIsEditable)
-            self._sets_table.setItem(row, 3, item3)
-        self._sets_table.blockSignals(False)
-
-    def _on_sets_item_changed(self, item: QTableWidgetItem):
-        # persist edits to viewmodel. Determine row's set_num (may have changed)
-        row = item.row()
-        set_num_item = self._sets_table.item(row, 0)
-        name_item = self._sets_table.item(row, 1)
-        qty_item = self._sets_table.item(row, 2)
-        remark_item = self._sets_table.item(row, 3)
-        if not set_num_item:
-            return
-        set_num = set_num_item.text()
-        try:
-            qty = int(qty_item.text()) if qty_item and qty_item.text() != "" else 0
-        except Exception:
-            qty = 0
-        remark = remark_item.text() if remark_item else ""
-        try:
-            # update or insert depending on existence
-            self._sets_vm.update_user_set(set_num, qty, remark)
-        except sqlite3.IntegrityError:
-            QMessageBox.critical(self, "Error", f"Set {set_num} already present")
-        except Exception:
-            logger.exception("Failed to update user_set %s", set_num)
+    # NOTE: Table is now backed by SetsTableModel which persists edits via the viewmodel.
 
     def _on_add_set(self):
         # prompt for set_num; simple flow for now
@@ -159,24 +119,23 @@ class MainWindow(QMainWindow):
             return
         try:
             self._sets_vm.add_user_set(set_num, 1, "")
-            self._populate_sets_table()
+            self._sets_model.load()
         except sqlite3.IntegrityError:
             QMessageBox.critical(self, "Error", f"Set {set_num} already present")
         except Exception:
             logger.exception("Failed to add user_set %s", set_num)
 
     def _on_delete_set(self):
-        items = self._sets_table.selectedItems()
-        if not items:
+        sel = self._sets_table.selectionModel().selectedRows()
+        if not sel:
             return
-        # assume first selected item's row
-        row = items[0].row()
-        set_num_item = self._sets_table.item(row, 0)
-        if not set_num_item:
+        row = sel[0].row()
+        model = self._sets_table.model()
+        set_num = model.data(model.index(row, 0))
+        if not set_num:
             return
-        set_num = set_num_item.text()
         try:
             self._sets_vm.delete_user_set(set_num)
-            self._populate_sets_table()
+            self._sets_model.load()
         except Exception:
             logger.exception("Failed to delete user_set %s", set_num)
