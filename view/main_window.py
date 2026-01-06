@@ -13,7 +13,7 @@ from viewmodel.sets_viewmodel import SetsViewModel
 from viewmodel.bins_viewmodel import BinsViewModel
 from .bins_table_model import BinsTableModel
 from .add_bin_dialog import AddBinDialog
-from .add_bin_viewmodel import AddBinViewModel
+from viewmodel.add_bin_viewmodel import AddBinViewModel
 
 
 class MainWindow(QMainWindow):
@@ -113,7 +113,6 @@ class MainWindow(QMainWindow):
             self._dialog_provider = dialog_provider
 
         # wire up sets table handlers
-        # editing is handled by the model which persists via the SetsViewModel
         # provide add/delete button handlers that operate via the viewmodel and reload model
         self._add_set_btn.clicked.connect(self._on_add_set)
         self._del_set_btn.clicked.connect(self._on_delete_set)
@@ -136,7 +135,7 @@ class MainWindow(QMainWindow):
         self.sync_action.setEnabled(True)
         # sync dialog handled above; nothing else needed here
 
-    # NOTE: Table is now backed by SetsTableModel which persists edits via the viewmodel.
+    # Table is backed by `SetsTableModel` which persists edits via the viewmodel.
 
     def _on_add_set(self):
         # prompt for set_num; simple flow for now
