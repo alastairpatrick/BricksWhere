@@ -76,19 +76,10 @@ SCHEMA = {
         ("quantity", "INTEGER", False),
         ("remark", "TEXT", False),
     ],
-    "user_parts": [
+    "user_part_bins": [
         ("part_num", "TEXT", True),
-        ("color_id", "INTEGER", True),
-        ("quantity", "INTEGER", False),     # can be negative for sold/lost/etc parts
+        ("bin_num", "TEXT", False),              # if a part has no records in this table, it is implictly in a bin named part_num
         ("remark", "TEXT", False),
-    ],
-    "user_familys": [
-        ("id", "INTEGER", True),
-        ("remark", "TEXT", False),
-    ],
-    "user_family_parts": [
-        ("family_id", "INTEGER", True),
-        ("part_num", "TEXT", True),
     ],
 }
 
@@ -102,7 +93,7 @@ SECONDARY_INDEXES = {
     "inventory_parts": ["inventory_id", "part_num", "color_id"],
     "inventory_sets": ["inventory_id", "set_num"],
     "inventory_minifigs": ["inventory_id", "fig_num"],
-    "user_family_parts": ["part_num"],
+    "user_part_bins": ["bin_num"],
 }
 
 def create_connection(path: str) -> sqlite3.Connection:

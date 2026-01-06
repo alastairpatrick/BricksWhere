@@ -10,11 +10,6 @@ class FakeDialog:
         self.execed = True
 
 
-@pytest.fixture(scope="session")
-def app_qt():
-    return QApplication.instance() or QApplication([])
-
-
 @pytest.fixture
 def patched_mw(monkeypatch):
     import view.main_window as mw

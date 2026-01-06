@@ -10,6 +10,10 @@ logger = logging.getLogger(__name__)
 from .sync_progress_dialog import SyncProgressDialog
 from viewmodel import SyncViewModel
 from viewmodel.sets_viewmodel import SetsViewModel
+from viewmodel.bins_viewmodel import BinsViewModel
+from .bins_table_model import BinsTableModel
+from .add_bin_dialog import AddBinDialog
+from .add_bin_viewmodel import AddBinViewModel
 
 
 class MainWindow(QMainWindow):
@@ -43,19 +47,41 @@ class MainWindow(QMainWindow):
         # model provided below
         sets_layout.addWidget(self._sets_table)
 
-        btn_row = QWidget()
-        btn_layout = QHBoxLayout(btn_row)
         self._add_set_btn = QPushButton("Add")
         self._del_set_btn = QPushButton("Delete")
-        btn_layout.addWidget(self._add_set_btn)
-        btn_layout.addWidget(self._del_set_btn)
-        sets_layout.addWidget(btn_row)
+        sets_btns = QHBoxLayout()
+        sets_btns.addStretch()
+        sets_btns.addWidget(self._add_set_btn)
+        sets_btns.addWidget(self._del_set_btn)
+        sets_layout.addLayout(sets_btns)
 
         # Placeholder tab
         self._placeholder_tab = QWidget()
 
         self._tab_widget.addTab(self._sets_tab, "Sets")
         self._tab_widget.addTab(self._placeholder_tab, "Placeholder")
+
+        # Bins tab
+        self._bins_tab = QWidget()
+        bins_layout = QVBoxLayout(self._bins_tab)
+        self._bins_viewmodel = BinsViewModel(self._db_path)
+        self._bins_model = BinsTableModel(self._bins_viewmodel)
+        self._bins_table = QTableView(self)
+        self._bins_table.setModel(self._bins_model)
+        self._bins_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self._bins_table.setSortingEnabled(True)
+        self._bins_model.load()
+        bins_layout.addWidget(self._bins_table)
+        bins_btns = QHBoxLayout()
+        add_bin_btn = QPushButton("Add")
+        del_bin_btn = QPushButton("Delete")
+        bins_btns.addStretch()
+        bins_btns.addWidget(add_bin_btn)
+        bins_btns.addWidget(del_bin_btn)
+        bins_layout.addLayout(bins_btns)
+        add_bin_btn.clicked.connect(self._on_add_bin)
+        del_bin_btn.clicked.connect(self._on_delete_bin)
+        self._tab_widget.addTab(self._bins_tab, "Bins")
 
         # Use QMainWindow public API: set a central widget with a layout instead
         central = QWidget()
@@ -139,3 +165,31 @@ class MainWindow(QMainWindow):
             self._sets_model.load()
         except Exception:
             logger.exception("Failed to delete user_set %s", set_num)
+
+    def _on_add_bin(self):
+        add_vm = AddBinViewModel(self._db_path)
+        part = AddBinDialog.getText(add_vm, self)
+        if not part:
+            return
+        try:
+            self._bins_viewmodel.add_user_part_bin(part, None, "")
+            self._bins_model.load()
+        except sqlite3.IntegrityError:
+            QMessageBox.critical(self, "Error", f"Part {part} already present in bins")
+        except Exception:
+            logger.exception("Failed to add user_part_bin %s", part)
+
+    def _on_delete_bin(self):
+        sel = self._bins_table.selectionModel().selectedRows()
+        if not sel:
+            return
+        row = sel[0].row()
+        model = self._bins_table.model()
+        part_num = model.data(model.index(row, 0))
+        if not part_num:
+            return
+        try:
+            self._bins_viewmodel.delete_user_part_bin(part_num)
+            self._bins_model.load()
+        except Exception:
+            logger.exception("Failed to delete user_part_bin %s", part_num)

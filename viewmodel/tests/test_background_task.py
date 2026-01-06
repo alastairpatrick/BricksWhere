@@ -1,14 +1,12 @@
 import time
 from concurrent.futures import ThreadPoolExecutor
-from PySide6.QtWidgets import QApplication
 import pytest
 
 from viewmodel.background_task import BackgroundTask
 
 
-def _wait_for(predicate, timeout=2.0):
+def _wait_for(app, predicate, timeout=2.0):
     """Spin wait while processing Qt events until predicate() is True or timeout."""
-    app = QApplication.instance() or QApplication([])
     deadline = time.time() + timeout
     while time.time() < deadline:
         if predicate():
@@ -22,7 +20,14 @@ def _wait_for(predicate, timeout=2.0):
     return False
 
 
-def test_backgroundtask_success():
+# NOTE: these tests rely on a single session-scoped QApplication provided by the
+# `app_qt` fixture in `conftest.py`. Tests must not create additional
+# QApplication instances (or create one inside `_wait_for`) because multiple
+# QApplications in the same process can cause races and native crashes on
+# some platforms; the `app_qt` fixture ensures a single, shared application.
+
+
+def test_backgroundtask_success(app_qt):
     executor = ThreadPoolExecutor(max_workers=1)
     bt = BackgroundTask(executor, poll_interval=10)
 
@@ -46,14 +51,14 @@ def test_backgroundtask_success():
 
     bt.run(worker)
 
-    assert _wait_for(lambda: len(completed) > 0), "timed out waiting for completion"
+    assert _wait_for(app_qt, lambda: len(completed) > 0), "timed out waiting for completion"
     assert completed[0] is True
     assert progressed == ["step1", "step2"]
 
     executor.shutdown(wait=True)
 
 
-def test_backgroundtask_exception():
+def test_backgroundtask_exception(app_qt):
     executor = ThreadPoolExecutor(max_workers=1)
     bt = BackgroundTask(executor, poll_interval=10)
 
@@ -68,14 +73,14 @@ def test_backgroundtask_exception():
 
     bt.run(worker)
 
-    assert _wait_for(lambda: len(completed) > 0), "timed out waiting for completion"
+    assert _wait_for(app_qt, lambda: len(completed) > 0), "timed out waiting for completion"
     assert completed[0] is False
     assert progressed == ["before error"]
 
     executor.shutdown(wait=True)
 
 
-def test_backgroundtask_cancel():
+def test_backgroundtask_cancel(app_qt):
     executor = ThreadPoolExecutor(max_workers=1)
     bt = BackgroundTask(executor, poll_interval=10)
 
@@ -97,7 +102,7 @@ def test_backgroundtask_cancel():
     time.sleep(0.05)
     bt.cancel()
 
-    assert _wait_for(lambda: len(completed) > 0), "timed out waiting for completion"
+    assert _wait_for(app_qt, lambda: len(completed) > 0), "timed out waiting for completion"
     assert completed[0] is False
 
     executor.shutdown(wait=True)

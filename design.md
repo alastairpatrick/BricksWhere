@@ -6,8 +6,8 @@ BricksWhere is a desktop GUI application that helps LEGO collectors organize the
 LEGO parts are identified by manufacturer part numbers and these are displayed throughout the application.
 Most parts are available in multiple colors. We follow the Rebrickable convention for colors: Rebrickable provides a CSV table that includes a color ID (suitable for a database key) and a human-readable color name. Users best understand color names, so the UI displays color names rather than internal numeric IDs.
 The combination of a part and a color is called an "element". For example, a black 1x1 brick and a blue 1x1 brick are the same part but different elements.
-We use the term "bin" for a physical container (bag, tray, drawer, box, etc.) containing parts.
-We use the term "family" for a group of related parts that the user has chosen to store in the same bin.
+We use the term "bin" for a physical container (bag, tray, drawer, box, etc.) containing parts. The user assigns labels to bins, probably using a naming
+system that allows them to rapidly locate the bin and part given the bin name.
 A LEGO set contains a fixed collection of elements (parts in particular colors). Users can "part out" a set — moving the elements from the set into their bins — and may add or update bins as needed.
 # Main Features
 The primary features are:

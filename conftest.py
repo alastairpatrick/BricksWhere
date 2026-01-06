@@ -1,10 +1,16 @@
 import pytest
+from PySide6.QtWidgets import QApplication
 from model.db import create_connection, create_schema, connection_ctx
 
 
 def pytest_configure(config):
     # register a convenience marker so tests can request automatic schema
     config.addinivalue_line("markers", "schema: create database schema automatically for sqlite_db fixture")
+
+
+@pytest.fixture(scope="session")
+def app_qt():
+    return QApplication.instance() or QApplication([])
 
 
 @pytest.fixture
