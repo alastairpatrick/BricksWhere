@@ -80,7 +80,7 @@ class MainWindow(QMainWindow):
                 # use AddSetDialog which validates existence in the sets table
                 from .add_set_dialog import AddSetDialog
 
-                return AddSetDialog.getText(parent, self._db_path, title, label)
+                return AddSetDialog.getText(parent, None, self._db_path, title, label)
 
             self._dialog_provider = _default_dialog_provider
         else:

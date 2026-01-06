@@ -1,14 +1,19 @@
 from PySide6.QtWidgets import QDialog, QLabel, QLineEdit, QVBoxLayout, QDialogButtonBox, QTableWidget, QTableWidgetItem, QHeaderView
 from PySide6.QtCore import Qt
-from model.db import create_connection
+from viewmodel.add_set_viewmodel import AddSetViewModel
 
 class AddSetDialog(QDialog):
     """Dialog that asks for a set number and only enables OK when the set exists in the `sets` table."""
 
-    def __init__(self, parent=None, db_path: str = "data.db", title: str = "Add Set", label: str = "Set number:"):
+    def __init__(self, parent=None, viewmodel: AddSetViewModel = None, db_path: str = "data.db", title: str = "Add Set", label: str = "Set number:"):
         super().__init__(parent)
         self.setWindowTitle(title)
         self._db_path = db_path
+        # allow injecting a fake viewmodel for tests; otherwise use DB-backed VM
+        if viewmodel is None:
+            self._vm = AddSetViewModel(db_path)
+        else:
+            self._vm = viewmodel
 
         self._label = QLabel(label)
         self._edit = QLineEdit()
@@ -53,13 +58,9 @@ class AddSetDialog(QDialog):
             ok_btn.setEnabled(False)
             return
 
+        # use viewmodel to fetch matches
         try:
-            conn = create_connection(self._db_path)
-            cur = conn.cursor()
-            # fetch up to 101 matches to detect >100
-            cur.execute("SELECT set_num, name FROM sets WHERE set_num LIKE ? ESCAPE '\\' LIMIT 101", (prefix + "%",))
-            rows = cur.fetchall()
-            conn.close()
+            rows = self._vm.prefix_matches(prefix, limit=101)
         except Exception:
             rows = []
 
@@ -104,12 +105,13 @@ class AddSetDialog(QDialog):
                 return
 
         # otherwise enable OK only when there's an exact match in sets (check first 100)
-        exact = any(r[0] == prefix for r in rows)
+        # consult viewmodel for exact existence to avoid DB dependence on rows slicing
+        exact = self._vm.set_exists(prefix) if prefix else False
         ok_btn.setEnabled(exact)
 
     @staticmethod
-    def getText(parent, db_path: str, title: str, label: str):
-        dlg = AddSetDialog(parent=parent, db_path=db_path, title=title, label=label)
+    def getText(parent, viewmodel: AddSetViewModel = None, db_path: str = "data.db", title: str = "Add Set", label: str = "Set number:"):
+        dlg = AddSetDialog(parent=parent, viewmodel=viewmodel, db_path=db_path, title=title, label=label)
         accepted = dlg.exec() == QDialog.Accepted
         return (dlg._edit.text(), accepted)
 
