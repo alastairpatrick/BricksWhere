@@ -2,10 +2,12 @@
 BricksWhere is a desktop GUI application that helps LEGO collectors organize their collections of LEGO parts. The application enables users to:
 - quickly find the parts and colors they need to assemble a LEGO model
 - quickly return loose parts and colors to their collection
+# Terminology
 LEGO parts are identified by manufacturer part numbers and these are displayed throughout the application.
 Most parts are available in multiple colors. We follow the Rebrickable convention for colors: Rebrickable provides a CSV table that includes a color ID (suitable for a database key) and a human-readable color name. Users best understand color names, so the UI displays color names rather than internal numeric IDs.
 The combination of a part and a color is called an "element". For example, a black 1x1 brick and a blue 1x1 brick are the same part but different elements.
-We use the term "bin" for a physical container (bag, tray, drawer, box, etc.). Each bin has a unique user-assigned label which the app displays and uses when mapping elements to physical locations.
+We use the term "bin" for a physical container (bag, tray, drawer, box, etc.) containing parts.
+We use the term "family" for a group of related parts that the user has chosen to store in the same bin.
 A LEGO set contains a fixed collection of elements (parts in particular colors). Users can "part out" a set — moving the elements from the set into their bins — and may add or update bins as needed.
 # Main Features
 The primary features are:
@@ -13,7 +15,8 @@ The primary features are:
 - Allow users to annotate replica data with persistent user data stored in application tables (for example `user_sets`).
 - Display tables and views of the database using an edittable spreadsheet like user interace
 - Display images (for the selected part or set) using the HTTP cache and background fetching.
-- Produce printable reports that list bins and elements to retrieve.
+- Produce printable reports derived from queries against the database. These reports can be be displayed in the application,
+  printed from the application and exported as PDF files.
 # Dependencies
 The application is implemented in Python. The UI uses Qt via PySide6. The local database is SQLite. Additional runtime libraries in the repository include `requests-cache` for HTTP response caching. BricksWhere is distributed under the MIT license and dependencies should be license-compatible.
 # Database

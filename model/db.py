@@ -23,6 +23,7 @@ def sanitize_identifier(name: str) -> str:
 # Define the schema for the replica tables according to corrected design.md
 # Each entry maps a table name to a list of (column_name, sql_type, is_primary)
 SCHEMA = {
+    # Tables below are a local replica of Rebrickable data
     "colors": [
         ("id", "INTEGER", True),
         ("name", "TEXT", False),
@@ -55,16 +56,6 @@ SCHEMA = {
         ("num_parts", "INTEGER", False),
         ("img_url", "TEXT", False),
     ],
-    "user_sets": [
-        ("set_num", "TEXT", True),
-        ("quantity", "INTEGER", False),
-        ("remark", "TEXT", False),
-    ],
-    "user_parts": [
-        ("part_num", "TEXT", True),
-        ("color_id", "INTEGER", True),
-        ("quantity", "INTEGER", False),     # can be negative for sold/lost/etc parts
-    ],
     "minifigs": [("fig_num", "TEXT", True), ("name", "TEXT", False), ("num_parts", "INTEGER", False), ("img_url", "TEXT", False)],
     "inventories": [("id", "INTEGER", True), ("version", "INTEGER", False), ("set_num", "TEXT", False)],
     "inventory_parts": [
@@ -78,6 +69,25 @@ SCHEMA = {
     "inventory_sets": [("inventory_id", "INTEGER", False), ("set_num", "TEXT", False), ("quantity", "INTEGER", False)],
     "inventory_minifigs": [("inventory_id", "INTEGER", False), ("fig_num", "TEXT", False), ("quantity", "INTEGER", False)],
     "part_relationships": [("rel_type", "TEXT", False), ("child_part_num", "TEXT", False), ("parent_part_num", "TEXT", False)],
+
+    # Tables below are for persistent user data
+    "user_sets": [
+        ("set_num", "TEXT", True),
+        ("quantity", "INTEGER", False),
+        ("remark", "TEXT", False),
+    ],
+    "user_parts": [
+        ("part_num", "TEXT", True),
+        ("color_id", "INTEGER", True),
+        ("quantity", "INTEGER", False),     # can be negative for sold/lost/etc parts
+    ],
+    "user_familys": [
+        ("id", "INTEGER", True),
+    ],
+    "user_family_parts": [
+        ("family_id", "INTEGER", True),
+        ("part_num", "TEXT", True),
+    ],
 }
 
 # table -> list of column names to index. Non-primary keys only. If a table is not listed, no non-primary indexes are created.
@@ -90,6 +100,7 @@ SECONDARY_INDEXES = {
     "inventory_parts": ["inventory_id", "part_num", "color_id"],
     "inventory_sets": ["inventory_id", "set_num"],
     "inventory_minifigs": ["inventory_id", "fig_num"],
+    "user_family_parts": ["part_num"],
 }
 
 def create_connection(path: str) -> sqlite3.Connection:
