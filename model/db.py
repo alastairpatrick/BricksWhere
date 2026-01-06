@@ -80,9 +80,11 @@ SCHEMA = {
         ("part_num", "TEXT", True),
         ("color_id", "INTEGER", True),
         ("quantity", "INTEGER", False),     # can be negative for sold/lost/etc parts
+        ("remark", "TEXT", False),
     ],
     "user_familys": [
         ("id", "INTEGER", True),
+        ("remark", "TEXT", False),
     ],
     "user_family_parts": [
         ("family_id", "INTEGER", True),
