@@ -27,8 +27,7 @@ def _wait_for(app, predicate, timeout=2.0):
 # some platforms; the `app_qt` fixture ensures a single, shared application.
 
 
-def test_backgroundtask_success(app_qt):
-    executor = ThreadPoolExecutor(max_workers=1)
+def test_backgroundtask_success(executor, app_qt):
     bt = BackgroundTask(executor, poll_interval=10)
 
     # drain any leftover messages
@@ -55,11 +54,8 @@ def test_backgroundtask_success(app_qt):
     assert completed[0] is True
     assert progressed == ["step1", "step2"]
 
-    executor.shutdown(wait=True)
 
-
-def test_backgroundtask_exception(app_qt):
-    executor = ThreadPoolExecutor(max_workers=1)
+def test_backgroundtask_exception(executor, app_qt):
     bt = BackgroundTask(executor, poll_interval=10)
 
     progressed = []
@@ -77,11 +73,8 @@ def test_backgroundtask_exception(app_qt):
     assert completed[0] is False
     assert progressed == ["before error"]
 
-    executor.shutdown(wait=True)
 
-
-def test_backgroundtask_cancel(app_qt):
-    executor = ThreadPoolExecutor(max_workers=1)
+def test_backgroundtask_cancel(executor, app_qt):
     bt = BackgroundTask(executor, poll_interval=10)
 
     progressed = []
@@ -104,5 +97,3 @@ def test_backgroundtask_cancel(app_qt):
 
     assert _wait_for(app_qt, lambda: len(completed) > 0), "timed out waiting for completion"
     assert completed[0] is False
-
-    executor.shutdown(wait=True)

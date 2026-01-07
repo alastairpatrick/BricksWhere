@@ -9,6 +9,12 @@ def pytest_configure(config):
 
 
 @pytest.fixture(scope="session")
+def executor():
+    from concurrent.futures import ThreadPoolExecutor
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        yield executor
+
+@pytest.fixture(scope="session")
 def app_qt():
     return QApplication.instance() or QApplication([])
 
@@ -30,6 +36,9 @@ def sqlite_db(tmp_path, request):
     db = str(tmp_path / "test.db")
     conn = create_connection(db)
     try:
+        # WAL mode seems to make setup time for tests that use this fixture faster
+        conn.execute("PRAGMA journal_mode = WAL")
+
         # Optional convenience marker on the test to request schema creation
         if request.node.get_closest_marker("schema"):
             create_schema(conn)
