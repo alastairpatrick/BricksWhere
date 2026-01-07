@@ -6,7 +6,7 @@ import pytest
 
 
 @pytest.mark.schema
-def test_sync_viewmodel_runs_and_reports(monkeypatch, sqlite_db):
+def test_sync_viewmodel_runs_and_reports(monkeypatch, executor, sqlite_db):
     db, conn = sqlite_db
 
     def fake_sync(conn_arg, urls, progress, is_cancelled):
@@ -25,7 +25,6 @@ def test_sync_viewmodel_runs_and_reports(monkeypatch, sqlite_db):
     def progress_cb(msg):
         collected.append(msg)
 
-    executor = ThreadPoolExecutor(max_workers=1)
     vm = SyncViewModel(str(db), executor)
     # run synchronously for test
     vm.start_sync(progress_cb, lambda: False)
@@ -34,7 +33,7 @@ def test_sync_viewmodel_runs_and_reports(monkeypatch, sqlite_db):
 
 
 @pytest.mark.schema
-def test_syncviewmodel_cancel(monkeypatch, sqlite_db):
+def test_syncviewmodel_cancel(monkeypatch, executor, sqlite_db):
     db, conn = sqlite_db
 
     def fake_sync(conn_arg, urls, progress, is_cancelled):
@@ -50,7 +49,6 @@ def test_syncviewmodel_cancel(monkeypatch, sqlite_db):
     def progress_cb(msg):
         collected.append(msg)
 
-    executor = ThreadPoolExecutor(max_workers=1)
     vm = SyncViewModel(str(db), executor)
 
     cancel_event = threading.Event()
@@ -59,11 +57,12 @@ def test_syncviewmodel_cancel(monkeypatch, sqlite_db):
     def runner():
         vm.start_sync(progress_cb, cancel_event.is_set)
 
-    t = threading.Thread(target=runner)
-    t.start()
+    executor.submit(runner)
+
     # request cancellation
     cancel_event.set()
-    t.join(timeout=2)
 
+    executor.drain_all()
+    
     # ensure progress includes SUMMARY: Sync cancelled (emitted by start_sync)
     assert any("SUMMARY: Sync cancelled" in m for m in collected)
