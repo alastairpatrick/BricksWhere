@@ -1,5 +1,4 @@
 import time
-from concurrent.futures import ThreadPoolExecutor
 import pytest
 
 from viewmodel.background_task import BackgroundTask
@@ -83,17 +82,14 @@ def test_backgroundtask_cancel(executor, app_qt):
     bt.completed.connect(lambda ok: completed.append(ok))
 
     def worker(progress, is_cancelled):
-        # busy loop until cancelled
-        while not is_cancelled():
-            time.sleep(0.01)
-        # signal that worker observed cancel and raise to indicate cancelled
+        assert is_cancelled()
         raise RuntimeError("cancelled")
 
     bt.run(worker)
-
-    # request cancel shortly after starting
-    time.sleep(0.05)
+    # There isn't a race here; in unit tests, the FakeExecutor doesn't
+    # run submitted tasks until the event loop is processed...
     bt.cancel()
 
+    # ... which happens inside _wait_for
     assert _wait_for(app_qt, lambda: len(completed) > 0), "timed out waiting for completion"
     assert completed[0] is False
