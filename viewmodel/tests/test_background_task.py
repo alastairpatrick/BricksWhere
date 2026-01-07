@@ -51,7 +51,7 @@ def test_backgroundtask_success(executor, app_qt):
     bt.run(worker)
 
     assert _wait_for(app_qt, lambda: len(completed) > 0), "timed out waiting for completion"
-    assert completed[0].result() is 7
+    assert completed[0].result() == 7
     assert progressed == ["step1", "step2"]
 
 

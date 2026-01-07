@@ -19,8 +19,26 @@ def _session_app_qt():
 @pytest.fixture
 def app_qt(_session_app_qt):
     yield _session_app_qt
-    # Process any single-shot events after all tests complete so that they are attributed to the test that scheduled them.
-    _session_app_qt.processEvents()
+
+
+@pytest.fixture
+def flush_events(app_qt):
+    """Helper tests can call to process Qt events for a short while.
+
+    Using this is preferable to unconditionally calling `processEvents()` in
+    the global teardown because executing events during teardown can exercise
+    dangling Qt objects and cause native crashes. Tests should call this
+    helper when they need to flush pending Qt events.
+    """
+    def _flush(timeout=0.05):
+        import time
+        deadline = time.time() + float(timeout)
+        while time.time() < deadline:
+            try:
+                app_qt.processEvents()
+            except Exception:
+                pass
+    return _flush
 
 class FakeExecutor:
     """A fake executor that runs tasks on the main thread for testing."""

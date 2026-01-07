@@ -194,7 +194,7 @@ class MainWindow(QMainWindow):
             if dlg_cls is None:
                 from .bin_range_dialog import BinRangeDialog as dlg_cls
 
-            dlg = dlg_cls(self)
+            dlg = dlg_cls(self, executor=self._executor)
             dlg.exec()
         except Exception:
             logger.exception("Failed showing Bin Range dialog")
