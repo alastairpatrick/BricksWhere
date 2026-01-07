@@ -40,17 +40,18 @@ def test_backgroundtask_success(executor, app_qt):
     completed = []
 
     bt.progressed.connect(lambda m: progressed.append(m))
-    bt.completed.connect(lambda ok: completed.append(ok))
+    bt.completed.connect(lambda future: completed.append(future))
 
     def worker(progress, is_cancelled):
         progress("step1")
         progress("step2")
         # normal return
+        return 7
 
     bt.run(worker)
 
     assert _wait_for(app_qt, lambda: len(completed) > 0), "timed out waiting for completion"
-    assert completed[0] is True
+    assert completed[0].result() is 7
     assert progressed == ["step1", "step2"]
 
 
@@ -69,7 +70,7 @@ def test_backgroundtask_exception(executor, app_qt):
     bt.run(worker)
 
     assert _wait_for(app_qt, lambda: len(completed) > 0), "timed out waiting for completion"
-    assert completed[0] is False
+    assert str(completed[0].exception()) == "boom"
     assert progressed == ["before error"]
 
 
@@ -92,4 +93,4 @@ def test_backgroundtask_cancel(executor, app_qt):
 
     # ... which happens inside _wait_for
     assert _wait_for(app_qt, lambda: len(completed) > 0), "timed out waiting for completion"
-    assert completed[0] is False
+    assert str(completed[0].exception()) == "cancelled"
