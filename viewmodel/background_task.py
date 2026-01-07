@@ -1,6 +1,7 @@
 from concurrent.futures import ThreadPoolExecutor
 import logging
 import queue
+import shiboken6
 import threading
 from concurrent.futures import Future
 from PySide6.QtCore import QObject, QTimer, Signal
@@ -56,6 +57,7 @@ class BackgroundTask(QObject):
         return self._future
 
     def _poll_q(self) -> None:
+        assert shiboken6.isValid(self), "BackgroundTask is not valid"
         while not self._progress_q.empty():
             msg = self._progress_q.get_nowait()
             self.progressed.emit(msg)
@@ -69,7 +71,3 @@ class BackgroundTask(QObject):
             self._future = None
             self.completed.emit(future)
 
-    def stop(self):
-        """Stop any internal timers; safe to call multiple times."""
-        if self._timer.isActive():
-            self._timer.stop()

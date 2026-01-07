@@ -12,13 +12,9 @@ def pytest_configure(config):
 
 
 @pytest.fixture(scope="session")
-def _session_app_qt():
+def app_qt():
     assert QApplication.instance() is None, "A QApplication instance already exists before tests start"
     return QApplication([])
-
-@pytest.fixture
-def app_qt(_session_app_qt):
-    yield _session_app_qt
 
 
 @pytest.fixture

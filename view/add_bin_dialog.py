@@ -91,11 +91,3 @@ class AddBinDialog(QDialog):
             self.ok.setEnabled(True)
         finally:
             self._suppress_autocomplete = False
-
-    @staticmethod
-    def getText(vm, parent=None):
-        dlg = AddBinDialog(vm, parent)
-        ok = dlg.exec()
-        if ok:
-            return dlg.input.text()
-        return None
