@@ -36,6 +36,9 @@ Note: the current implementation uses the application DB path as the cache backi
 # Architecture
 The project uses Model-View-ViewModel (MVVM). Business logic, I/O, and data storage live in `model/`. UI orchestration and testable presentation logic live in `viewmodel/`. UI widgets live in `view/` and should be thin; views interact with view-models through callbacks, signals, and small public APIs. The BackgroundTask class allows the view-model to perform long running tasks while the GUI remains responsive.
 Tests are organized alongside the code under `model/tests/`, `viewmodel/tests/`, and `view/tests/`. The test suite uses `pytest` and may use `pytest-qt` for UI tests; note that Qt-based tests are inherently more complex and may be flaky in some environments.
+## Threading
+There is a BackgroundTask class, which runs tasks on worker threads while signalling progress and completion through Qt signals. The unit tests are single threaded and we want them to stay that way because we make widespread use of monkey patching. Multi-threading and monkey patching are a brittle combination because of the danger of unexpected data races.
+Instead, we use an "executor" fixture in tests, which returns an executor that runs tasks on the main thread instead of a worker thread.
 # User Interface
 Many UI widgets must be updated after a synchronization or when the user changes persistent data. The implementation uses view-models to keep views thin and testable; view-models notify views via signals so UI components can update themselves.
 The codebase exposes application-level hooks and testing helpers to facilitate deterministic unit tests of UI-related behavior.
