@@ -43,6 +43,12 @@ class MainWindow(QMainWindow):
         self.sync_action.triggered.connect(self.start_sync)
         tools.addAction(self.sync_action)
 
+        # Menu -> Reports -> Bin Range
+        reports = self.menuBar().addMenu("Reports")
+        self.report_bin_action = QAction("Bin Range", self)
+        self.report_bin_action.triggered.connect(self._on_report_bin_range)
+        reports.addAction(self.report_bin_action)
+
         # bottom tabs
         self._tab_widget = QTabWidget()
         self._tab_widget.setTabPosition(QTabWidget.South)
@@ -178,6 +184,20 @@ class MainWindow(QMainWindow):
             QMessageBox.critical(self, "Error", f"Part {part} already present in bins")
         except Exception:
             logger.exception("Failed to add user_part_bin %s", part)
+
+    def _on_report_bin_range(self):
+        # show the bin range dialog; dialog currently does nothing on Generate
+        try:
+            # allow tests to monkeypatch `BinRangeDialog` on this module by
+            # preferring a module-level name if present; otherwise import
+            dlg_cls = globals().get("BinRangeDialog")
+            if dlg_cls is None:
+                from .bin_range_dialog import BinRangeDialog as dlg_cls
+
+            dlg = dlg_cls(self)
+            dlg.exec()
+        except Exception:
+            logger.exception("Failed showing Bin Range dialog")
 
     def _on_delete_bin(self):
         sel = self._bins_table.selectionModel().selectedRows()
