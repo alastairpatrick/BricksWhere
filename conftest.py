@@ -19,13 +19,13 @@ class FakeExecutor:
     """A fake executor that runs tasks on the main thread for testing."""
 
     def __init__(self, app, timeout=5.0):
-        self._futures = set()
+        self._pending_count = 0
         self._app = app
         self._timeout = timeout
 
     def submit(self, fn, *args, **kwargs):
         future = Future()
-        self._futures.add(future)
+        self._pending_count += 1
         def deferred():
             try:
                 result = fn(*args, **kwargs)
@@ -33,14 +33,14 @@ class FakeExecutor:
             except Exception as e:
                 future.set_exception(e)
             finally:
-                self._futures.remove(future)
+                self._pending_count -= 1
         QTimer.singleShot(0, deferred)
         return future
     
     def drain_all(self):
         """Await completion of all pending tasks."""
         start_time = time.time()
-        while self._futures:
+        while self._pending_count > 0:
             if time.time() - start_time > self._timeout:
                 raise TimeoutError("Timed out waiting for FakeExecutor tasks to complete")  
             self._app.processEvents()
