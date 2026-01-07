@@ -12,8 +12,15 @@ def pytest_configure(config):
 
 
 @pytest.fixture(scope="session")
-def app_qt():
-    return QApplication.instance() or QApplication([])
+def _session_app_qt():
+    assert QApplication.instance() is None, "A QApplication instance already exists before tests start"
+    return QApplication([])
+
+@pytest.fixture
+def app_qt(_session_app_qt):
+    yield _session_app_qt
+    # Process any single-shot events after all tests complete so that they are attributed to the test that scheduled them.
+    _session_app_qt.processEvents()
 
 class FakeExecutor:
     """A fake executor that runs tasks on the main thread for testing."""
