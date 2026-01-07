@@ -1,4 +1,3 @@
-from concurrent.futures import ThreadPoolExecutor
 import logging
 from PySide6.QtWidgets import QMainWindow, QTabWidget, QTableView, QPushButton, QHeaderView, QMessageBox, QVBoxLayout, QWidget, QHBoxLayout, QAbstractItemView
 from PySide6.QtGui import QAction
@@ -28,10 +27,13 @@ class MainWindow(QMainWindow):
         layout.addLayout(btns)
 
 
-    def __init__(self, db_path: str = "data.db", dialog_provider=None):
+    def __init__(self, db_path: str = "data.db", executor=None, requests_session=None, dialog_provider=None):
         super().__init__()
         self._db_path = db_path
-        self._executor = ThreadPoolExecutor(max_workers=2)
+        self._executor = executor
+        self._requests_session = requests_session
+
+        self._sync_vm = SyncViewModel(self._db_path, executor=self._executor)
 
         self.setWindowTitle("BricksWhere")
 
@@ -41,7 +43,6 @@ class MainWindow(QMainWindow):
         self.sync_action.triggered.connect(self.start_sync)
         tools.addAction(self.sync_action)
 
-        self._sync_vm = SyncViewModel(self._db_path, self._executor)
         # bottom tabs
         self._tab_widget = QTabWidget()
         self._tab_widget.setTabPosition(QTabWidget.South)

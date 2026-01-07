@@ -1,8 +1,10 @@
 import argparse
-import sys
+from concurrent.futures import ThreadPoolExecutor
 import os
 from PySide6.QtWidgets import QApplication
 from PySide6.QtCore import QTimer
+from requests_cache import CachedSession
+import sys
 
 from model.db import create_connection, create_schema, connection_ctx
 from view import MainWindow
@@ -41,8 +43,16 @@ def app_entry():
     with connection_ctx(DB_PATH) as conn, conn:
         create_schema(conn)
 
+    executor = ThreadPoolExecutor(max_workers=2)
+
+    requests_session = CachedSession(
+        backend='sqlite',
+        cache_name=DB_PATH,
+        cache_control=True,
+    )
+
     app = QApplication(sys.argv)
-    win = MainWindow(DB_PATH)
+    win = MainWindow(DB_PATH, executor=executor, requests_session=requests_session)
 
     # If DB was just created, automatically start initial sync
     if not db_exists:
