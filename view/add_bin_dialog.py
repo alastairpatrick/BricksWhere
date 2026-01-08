@@ -3,9 +3,9 @@ from PySide6.QtCore import Qt
 
 
 class AddBinDialog(QDialog):
-    def __init__(self, vm, parent=None):
+    def __init__(self, parent=None, viewmodel=None):
         super().__init__(parent)
-        self.vm = vm
+        self.vm = viewmodel
         self.setWindowTitle("Add Bin")
         self._build()
 

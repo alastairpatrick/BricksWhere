@@ -6,17 +6,15 @@ BricksWhere is a desktop GUI application that helps LEGO collectors organize the
 LEGO parts are identified by manufacturer part numbers and these are displayed throughout the application.
 Most parts are available in multiple colors. We follow the Rebrickable convention for colors: Rebrickable provides a CSV table that includes a color ID (suitable for a database key) and a human-readable color name. Users best understand color names, so the UI displays color names rather than internal numeric IDs.
 The combination of a part and a color is called an "element". For example, a black 1x1 brick and a blue 1x1 brick are the same part but different elements.
-We use the term "bin" for a physical container (bag, tray, drawer, box, etc.) containing parts. The user assigns labels to bins, probably using a naming
-system that allows them to rapidly locate the bin and part given the bin name.
+We use the term "bin" for a physical container (bag, tray, drawer, box, etc.) containing parts. The user assigns labels to bins, probably using a naming system that allows them to rapidly locate the bin and part given the bin name.
 A LEGO set contains a fixed collection of elements (parts in particular colors). Users can "part out" a set — moving the elements from the set into their bins — and may add or update bins as needed.
 # Main Features
 The primary features are:
 - Maintain a local replica of the Rebrickable CSV data along with some local tables containing persistent user provided data
 - Allow users to annotate replica data with persistent user data stored in application tables (for example `user_sets`).
-- Display tables and views of the database using an edittable spreadsheet like user interace
+- Display tables and views of the database using an editable spreadsheet like user interace
 - Display images (for the selected part or set) using the HTTP cache and background fetching.
-- Produce printable reports derived from queries against the database. These reports can be be displayed in the application,
-  printed from the application and exported as PDF files.
+- Produce printable reports derived from queries against the database. These reports can be be displayed in the application, printed from the application and exported as PDF files.
 # Dependencies
 The application is implemented in Python. The UI uses Qt via PySide6. The local database is SQLite. Additional runtime libraries in the repository include `requests-cache` for HTTP response caching. BricksWhere is distributed under the MIT license and dependencies should be license-compatible.
 # Database
@@ -31,11 +29,11 @@ We intentionally do not add user columns to the replica tables. Persistent user 
 The repository defines the replica tables that map directly to Rebrickable CSV files (for example `parts`, `colors`, `sets`, `elements`, `themes`, `inventories`, `inventory_parts`, etc.). Schema details are implemented in `model/db.py` and created programmatically by `create_schema(conn)`.
 Key application tables include `user_sets` (see below) and the replica tables used for lookups and read-only queries.
 ## HTTP Cache
-Images and other HTTP resources are fetched on demand and cached locally. The application uses `requests-cache` (when available) with a SQLite backend so cached HTTP responses are persisted in the application's database file. This reduces repeated downloads and respects HTTP cache headers when possible. The code falls back to `requests` if `requests-cache` is not installed.
-Note: the current implementation uses the application DB path as the cache backing store via `requests_cache.CachedSession(cache_name=db_path, backend='sqlite')`. This is an implementation detail; the important design point is that HTTP responses are cached persistently and reused across runs.
+Images and other HTTP resources are fetched on demand and cached locally. The application uses `requests-cache` with a SQLite backend so cached HTTP responses are persisted in the application's database file. This reduces repeated downloads and respects HTTP cache headers when possible.
 # Architecture
-The project uses Model-View-ViewModel (MVVM). Business logic, I/O, and data storage live in `model/`. UI orchestration and testable presentation logic live in `viewmodel/`. UI widgets live in `view/` and should be thin; views interact with view-models through callbacks, signals, and small public APIs. The BackgroundTask class allows the view-model to perform long running tasks while the GUI remains responsive.
-Tests are organized alongside the code under `model/tests/`, `viewmodel/tests/`, and `view/tests/`. The test suite uses `pytest` and may use `pytest-qt` for UI tests; note that Qt-based tests are inherently more complex and may be flaky in some environments.
+The project uses Model-View-ViewModel (MVVM). Business logic, I/O, and data storage live in `model/`. UI orchestration and testable presentation logic live in `viewmodel/`. UI widgets live in `view/` and should be thin; views interact with view-models through callbacks, signals, and small public APIs.
+## Testing
+Tests are organized alongside the code under `model/tests/`, `viewmodel/tests/`, and `view/tests/`. The test suite uses `pytest`. View related unit tests must not cause the operating system to display windows and certainly must not require manual user intervention. Tests must be performant; otherwise AI agents might timeout before seeing the results of tests they request be run.
 ## Threading
 There is a BackgroundTask class, which runs tasks on worker threads while signalling progress and completion through Qt signals. When a BackgroundTask completes, it emits a completed signal containing a Future, containing the task's result if it succeeded or the exception if it failed. It is expected that a BackgroundTask will raise an exception when it detects it should cancel. In this case, BackgroundTask.is_cancelled can be used to determine that cancellation was requested.
 

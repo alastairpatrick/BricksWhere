@@ -174,9 +174,12 @@ class MainWindow(QMainWindow):
 
     def _on_add_bin(self):
         add_vm = AddBinViewModel(self._db_path)
-        part = AddBinDialog.getText(add_vm, self)
-        if not part:
+        dlg = AddBinDialog(self, viewmodel=add_vm)
+        ok = dlg.exec()
+        if not ok:
             return
+        part = dlg.input.text()
+
         try:
             self._bins_viewmodel.add_user_part_bin(part, None, "")
             self._bins_model.load()
