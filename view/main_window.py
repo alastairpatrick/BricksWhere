@@ -4,7 +4,6 @@ from PySide6.QtGui import QAction
 from PySide6.QtCore import Signal, Qt
 import sqlite3
 
-from view.bin_range_dialog import BinRangeDialog
 from viewmodel.add_set_viewmodel import AddSetViewModel
 
 logger = logging.getLogger(__name__)
@@ -18,6 +17,15 @@ from .add_bin_dialog import AddBinDialog
 from viewmodel.add_bin_viewmodel import AddBinViewModel
 from .add_set_dialog import AddSetDialog
 
+REPORTS_ENABLED = True
+try:
+    # All direct and indirect dependencies on ReportLab must go here, so we can
+    # disable reports cleanly if ReportLab is not installed.
+    from view.bin_range_dialog import BinRangeDialog
+except ImportError as e:
+    logger.warning("Reports disabled; missing dependencies:", exc_info=e)
+    REPORTS_ENABLED = False
+    BinRangeDialog = None
 
 class MainWindow(QMainWindow):
 
@@ -62,8 +70,13 @@ class MainWindow(QMainWindow):
 
         # Menu -> Reports -> Bin Range
         reports = self.menuBar().addMenu("Reports")
+        reports.setEnabled(REPORTS_ENABLED)
         self.report_bin_action = QAction("Bin Range", self)
         self.report_bin_action.triggered.connect(self._on_report_bin_range)
+        # disable the action with a helpful tooltip when reports are unavailable
+        self.report_bin_action.setEnabled(REPORTS_ENABLED)
+        if not REPORTS_ENABLED:
+            self.report_bin_action.setToolTip("Install reportlab to enable reports (pip install reportlab)")
         reports.addAction(self.report_bin_action)
 
         # bottom tabs

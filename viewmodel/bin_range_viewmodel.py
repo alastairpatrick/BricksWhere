@@ -8,13 +8,17 @@ from viewmodel.background_task import BackgroundTask
 
 # Try to use reportlab if available for nicer PDF generation; fall back to
 # the built-in minimal generator when reportlab isn't installed.
-try:
-    from reportlab.pdfgen import canvas
-    from reportlab.lib.pagesizes import letter
-    _HAVE_REPORTLAB = True
-except Exception:
-    print("reportlab not available; using minimal PDF generator")
-    _HAVE_REPORTLAB = False
+#try:
+#    from reportlab.pdfgen import canvas
+#    from reportlab.lib.pagesizes import letter
+#    _HAVE_REPORTLAB = True
+#except Exception:
+#    print("reportlab not available; using minimal PDF generator")
+#    _HAVE_REPORTLAB = False
+
+_HAVE_REPORTLAB = True
+from reportlab.pdfgen import canvas
+from reportlab.lib.pagesizes import letter
 
 class BinRangeViewModel:
     def __init__(self, executor, name: str = "Bin Range Report", delay: float = 1.0):
