@@ -76,11 +76,15 @@ class BinsTableModel(QAbstractTableModel):
         return True
 
     def sort(self, column: int, order: Qt.SortOrder = Qt.AscendingOrder):
-        mapping = {
-            self.PartNumCol: "part_num",
-            self.BinNumCol: "bin_num",
-            self.RemarkCol: "remark",
-        }
-        colname = mapping.get(column, "part_num")
-        desc = order == Qt.DescendingOrder
-        self.load(order_by=colname, descending=desc)
+        reverse = order == Qt.DescendingOrder
+        if column == self.PartNumCol:
+            from model.sorting import bin_key
+            self._rows.sort(key=lambda r: bin_key(r.get("part_num", "")), reverse=reverse)
+        elif column == self.BinNumCol:
+            from model.sorting import bin_key
+            self._rows.sort(key=lambda r: bin_key(r.get("bin_num", "")), reverse=reverse)
+        elif column == self.RemarkCol:
+            self._rows.sort(key=lambda r: r.get("remark", ""), reverse=reverse)
+        # notify views
+        self.layoutAboutToBeChanged.emit()
+        self.layoutChanged.emit()

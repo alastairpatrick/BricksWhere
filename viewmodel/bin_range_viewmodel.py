@@ -5,16 +5,20 @@ from typing import Optional
 from concurrent.futures import Future
 
 from viewmodel.background_task import BackgroundTask
+from model.db import create_connection
 
-from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter
+from reportlab.lib import colors
+from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
 
 
 class BinRangeViewModel:
-    def __init__(self, executor, name: str = "Bin Range Report", delay: float = 1.0):
+    def __init__(self, executor, db_path: str = "data.db", name: str = "Bin Range Report", delay: float = 1.0):
         # executor may be a FakeExecutor in tests
         self.background_task = BackgroundTask(executor, name=name)
         self._delay = delay
+        self.db_path = db_path
 
     def generate_pdf(self, start: str, end: str, include_images: bool) -> Future:
         """Start background generation of a PDF and return a Future.
@@ -22,25 +26,96 @@ class BinRangeViewModel:
         The Future's result() will be the PDF bytes.
         """
         def worker(progress, is_cancelled):
-            # simulate progress
             progress("Starting report generation")
-            # delay to simulate work (can be 0 in tests)
+            # optional artificial delay for tests
             if self._delay and self._delay > 0:
                 time.sleep(self._delay)
-            progress("Assembling PDF bytes")
-            # generate PDF bytes using ReportLab
-            pdf = _make_hello_pdf_bytes()
+            progress("Querying owned parts")
+            rows = _fetch_owned_parts(self.db_path, start, end)
+            progress(f"Rendering {len(rows)} rows to PDF")
+            pdf = _render_bin_range_pdf(rows, start, end)
             return pdf
 
         return self.background_task.run(worker)
 
 
-def _make_hello_pdf_bytes() -> bytes:
+def _fetch_owned_parts(db_path: str, start: str, end: str):
+    """Return a list of tuples (bin_num, part_num, part_name, quantity).
+
+    Ownership is computed by joining user_sets -> inventories -> inventory_parts
+    and multiplying inventory_part.quantity by user_sets.quantity. The user's
+    explicit `user_part_bins` assignment is used when present; otherwise the
+    implicit bin is the `part_num` itself.
+    """
+    sql = (
+        "SELECT COALESCE(upb.bin_num, ip.part_num) AS bin_num, ip.part_num, COALESCE(p.name, ''), "
+        "SUM(ip.quantity * us.quantity) as qty "
+        "FROM user_sets us "
+        "JOIN inventories i ON i.set_num = us.set_num "
+        "JOIN inventory_parts ip ON ip.inventory_id = i.id "
+        "LEFT JOIN user_part_bins upb ON upb.part_num = ip.part_num "
+        "LEFT JOIN parts p ON p.part_num = ip.part_num "
+        "GROUP BY bin_num, ip.part_num, p.name "
+    )
+    with create_connection(db_path) as conn, conn:
+        cur = conn.cursor()
+        cur.execute(sql)
+        rows = cur.fetchall()
+
+    # Use shared sorting helper so the same ordering is used across the app.
+    from model.sorting import bin_key
+
+    start_key = bin_key(start)
+    end_key = bin_key(end)
+
+    # Filter rows in Python according to the same ordering semantics.
+    filtered = [r for r in rows if start_key <= bin_key(r[0]) <= end_key]
+
+    # Finally sort the filtered rows deterministically for the report.
+    filtered.sort(key=lambda r: (bin_key(r[0]), str(r[1] or '')))
+    return filtered
+
+
+def _render_bin_range_pdf(rows, start: str, end: str) -> bytes:
+    """Render the rows to a multi-page PDF (US Letter), repeating headers and
+    adding page numbers. Returns PDF bytes.
+    """
     buf = io.BytesIO()
-    c = canvas.Canvas(buf, pagesize=letter)
-    c.setFont("Helvetica", 24)
-    # place "Hello, World" near the top-left with some margin
-    c.drawString(72, 720, "Hello, World")
-    c.showPage()
-    c.save()
+    doc = SimpleDocTemplate(buf, pagesize=letter,
+                            leftMargin=36, rightMargin=36, topMargin=36, bottomMargin=36)
+
+    styles = getSampleStyleSheet()
+    story = []
+
+    title = Paragraph(f"Bin Range Report: {start} - {end}", styles['Title'])
+    story.append(title)
+    story.append(Spacer(1, 12))
+
+    # table header
+    data = [["Bin", "Part #", "Part Name", "Quantity"]]
+    for r in rows:
+        # r: (bin_num, part_num, part_name, qty)
+        data.append([str(r[0] or ''), str(r[1] or ''), str(r[2] or ''), str(r[3] or '')])
+
+    # create table; let it split across pages and repeat the first row
+    table = Table(data, repeatRows=1, colWidths=[80, 120, 260, 60])
+    table.setStyle(TableStyle([
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
+        ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('ALIGN', (-1, 0), (-1, -1), 'RIGHT'),
+    ]))
+
+    story.append(table)
+
+    def _add_page_number(canvas, doc):
+        page_num = canvas.getPageNumber()
+        text = f"Page {page_num}"
+        canvas.saveState()
+        canvas.setFont('Helvetica', 9)
+        width, height = letter
+        canvas.drawCentredString(width / 2.0, 18, text)
+        canvas.restoreState()
+
+    doc.build(story, onFirstPage=_add_page_number, onLaterPages=_add_page_number)
     return buf.getvalue()
