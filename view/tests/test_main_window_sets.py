@@ -63,9 +63,14 @@ def test_add_duplicate_shows_error(monkeypatch, make_window):
 
     monkeypatch.setattr(mw, "QMessageBox", FakeMsg)
 
+    class FakeAddSetDialog:
+        @staticmethod
+        def getText(parent, viewmodel=None, db_path="data.db", title="Add Set", label="Set number:"):
+            return ("S1", True)  # duplicate
+    monkeypatch.setattr(mw, "AddSetDialog", FakeAddSetDialog)
+
     # create window and inject dialog provider to avoid modal dialog
     win = make_window("db_sets2")
-    win._dialog_provider = lambda parent, title, label: ("S1", True)
     win._sets_vm = FakeSetsVM()
     # call handler which will attempt to add and trigger QMessageBox.critical via duplicate
     win._on_add_set()

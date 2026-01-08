@@ -13,6 +13,7 @@ from viewmodel.bins_viewmodel import BinsViewModel
 from .bins_table_model import BinsTableModel
 from .add_bin_dialog import AddBinDialog
 from viewmodel.add_bin_viewmodel import AddBinViewModel
+from .add_set_dialog import AddSetDialog
 
 
 class MainWindow(QMainWindow):
@@ -27,7 +28,7 @@ class MainWindow(QMainWindow):
         layout.addLayout(btns)
 
 
-    def __init__(self, db_path: str = "data.db", executor=None, requests_session=None, dialog_provider=None):
+    def __init__(self, db_path: str = "data.db", executor=None, requests_session=None):
         super().__init__()
         self._db_path = db_path
         self._executor = executor
@@ -107,18 +108,6 @@ class MainWindow(QMainWindow):
         # load initial data
         self._sets_model.load()
 
-        # dialog provider is a callable(parent, title, label) -> (text, ok)
-        if dialog_provider is None:
-            def _default_dialog_provider(parent, title, label):
-                # use AddSetDialog which validates existence in the sets table
-                from .add_set_dialog import AddSetDialog
-
-                return AddSetDialog.getText(parent, None, self._db_path, title, label)
-
-            self._dialog_provider = _default_dialog_provider
-        else:
-            self._dialog_provider = dialog_provider
-
         # wire up sets table handlers
         # provide add/delete button handlers that operate via the viewmodel and reload model
         self._add_set_btn.clicked.connect(self._on_add_set)
@@ -145,8 +134,7 @@ class MainWindow(QMainWindow):
     # Table is backed by `SetsTableModel` which persists edits via the viewmodel.
 
     def _on_add_set(self):
-        # prompt for set_num; simple flow for now
-        set_num, ok = self._dialog_provider(self, "Add Set", "Set number:")
+        set_num, ok = AddSetDialog.getText(self, None, self._db_path, "Add Set", "Set number:")
         if not ok or not set_num:
             return
         try:
