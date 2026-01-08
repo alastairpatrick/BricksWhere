@@ -29,7 +29,7 @@ def test_include_images_unchecked_by_default_and_cancel_closes():
     assert dlg.result() == QDialog.Rejected
 
 
-def test_generate_displays_pdf(monkeypatch, executor, app_qt):
+def test_generate_displays_pdf(executor, app_qt):
     # provide a BinRangeViewModel with no delay so FakeExecutor won't block
     from viewmodel.bin_range_viewmodel import BinRangeViewModel
 
@@ -47,9 +47,7 @@ def test_generate_displays_pdf(monkeypatch, executor, app_qt):
         def set_data(self, data):
             captured['data'] = data
 
-    monkeypatch.setattr('view.bin_range_dialog.PdfViewer', FakeViewer)
-
-    dlg = BinRangeDialog(viewmodel=vm)
+    dlg = BinRangeDialog(viewmodel=vm, pdf_viewer_cls=FakeViewer)
     # enable the generate button by entering a valid range
     dlg._start.setText('A')
     dlg._end.setText('B')

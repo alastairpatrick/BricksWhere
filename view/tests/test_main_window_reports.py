@@ -18,16 +18,10 @@ class FakeSetsVM:
         return []
     
 
-def test_reports_bin_range_action_triggers_dialog(monkeypatch, make_window):
+def test_reports_bin_range_action_triggers_dialog(make_window):
     import view.main_window as mw
 
-    # patch the BinRangeDialog so exec() doesn't block
-    monkeypatch.setattr(mw, "BinRangeDialog", FakeDialog, raising=False)
-
     # avoid DB access by injecting a lightweight FakeSetsVM
-    monkeypatch.setattr(mw, "SetsViewModel", FakeSetsVM)
-    win = make_window("db_reports")
-    # action should exist
-    assert hasattr(win, "report_bin_action")
-    # trigger it and ensure our FakeDialog was execed
+    win = make_window("db_reports", sets_view_model=FakeSetsVM(), bin_range_dialog_cls=FakeDialog)
+    # trigger action and ensure our FakeDialog was execed
     win.report_bin_action.trigger()

@@ -3,6 +3,26 @@ from PySide6.QtPdfWidgets import QPdfView
 from PySide6.QtPdf import QPdfDocument
 from PySide6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QCheckBox, QWidget
 
+from viewmodel.bin_range_viewmodel import BinRangeViewModel
+
+
+class PdfViewer(QWidget):
+    """Simple PDF viewer wrapper.
+    """
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._doc = QPdfDocument(self)
+        self._view = QPdfView(self)
+        l = QVBoxLayout(self)
+        l.addWidget(self._view)
+        self._view.setDocument(self._doc)
+
+    def set_data(self, data: bytes):
+        ba = QByteArray(data)
+        # keep buffer reachable in case document accesses it after set_data returns
+        self._qbuffer = QBuffer(ba)
+        self._qbuffer.open(QIODevice.ReadOnly)
+        self._doc.load(self._qbuffer)
 
 
 class BinRangeDialog(QDialog):
@@ -12,18 +32,26 @@ class BinRangeDialog(QDialog):
     sorts after the start value (ascending string order).
     """
 
-    def __init__(self, parent=None, executor=None, viewmodel=None):
+    def __init__(self, parent=None,
+                 executor=None,
+                 viewmodel=None,
+                 pdf_viewer_cls=PdfViewer):
         super().__init__(parent)
+        self._pdf_viewer_cls = pdf_viewer_cls
+
         self.setWindowTitle("Bin Range")
-        # allow injecting a viewmodel for tests; defer creating a default
-        # viewmodel until generation to avoid creating BackgroundTask timers
-        # during dialog construction.
-        if viewmodel is None:
-            from viewmodel.bin_range_viewmodel import BinRangeViewModel
-            self._vm = BinRangeViewModel(executor=executor)
-        else:
-            self._vm = viewmodel
+
+        self._vm = viewmodel if viewmodel is not None else BinRangeViewModel(executor=executor)
+
+        self._vm.background_task.completed.connect(self.on_generate_completed)
+
         self._build()
+
+    def closeEvent(self, event):
+        # disconnect from background task to avoid handling events after close
+        self._vm.background_task.completed.disconnect(self.on_generate_completed)
+        self._vm.background_task.shutdown()
+        event.accept()
 
     def _build(self):
         v = QVBoxLayout(self)
@@ -45,7 +73,7 @@ class BinRangeDialog(QDialog):
         v.addWidget(self._include_images)
 
         # PDF viewer placed between checkbox and buttons
-        self._viewer = PdfViewer(self)
+        self._viewer = self._pdf_viewer_cls(self)
         v.addWidget(self._viewer)
 
         btns = QHBoxLayout()
@@ -86,34 +114,13 @@ class BinRangeDialog(QDialog):
         end = (self._end.text() or "").strip()
         include = self.include_images
 
-        def on_completed(future):
-            try:
-                data = future.result()
-                self._viewer.set_data(data)
-            finally:
-                self._generate.setEnabled(True)
-                self._cancel.setEnabled(True)
-
-        # connect and remember handler so we can disconnect on close
-        self._vm.background_task.completed.connect(on_completed)
         # trigger generation
         self._vm.generate_pdf(start, end, include)
 
-
-class PdfViewer(QWidget):
-    """Simple PDF viewer wrapper.
-    """
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self._doc = QPdfDocument(self)
-        self._view = QPdfView(self)
-        l = QVBoxLayout(self)
-        l.addWidget(self._view)
-        self._view.setDocument(self._doc)
-
-    def set_data(self, data: bytes):
-        ba = QByteArray(data)
-        buf = QBuffer(ba)
-        buf.open(QIODevice.ReadOnly)
-        self._doc.load(buf)
-
+    def on_generate_completed(self, future):
+        try:
+            data = future.result()
+            self._viewer.set_data(data)
+        finally:
+            self._generate.setEnabled(True)
+            self._cancel.setEnabled(True)

@@ -4,6 +4,8 @@ from PySide6.QtGui import QAction
 from PySide6.QtCore import Signal, Qt
 import sqlite3
 
+from view.bin_range_dialog import BinRangeDialog
+
 logger = logging.getLogger(__name__)
 
 from .sync_progress_dialog import SyncProgressDialog
@@ -28,12 +30,25 @@ class MainWindow(QMainWindow):
         layout.addLayout(btns)
 
 
-    def __init__(self, db_path: str = "data.db", executor=None, requests_session=None):
+    def __init__(self, db_path: str = "data.db",
+                 executor=None,
+                 requests_session=None,
+                 sets_view_model=None,
+                 message_box_cls=QMessageBox,
+                 sync_progress_dialog_cls=SyncProgressDialog,
+                 bin_range_dialog_cls=BinRangeDialog,
+                 exec_add_bin_dialog=AddBinDialog.getText,
+                 exec_add_set_dialog=AddSetDialog.getText):
         super().__init__()
         self._db_path = db_path
         self._executor = executor
         self._requests_session = requests_session
-
+        self.exec_add_bin_dialog = exec_add_bin_dialog
+        self.exec_add_set_dialog = exec_add_set_dialog
+        self.bin_range_dialog_cls = bin_range_dialog_cls
+        self._message_box_cls = message_box_cls
+        self._sync_progress_dialog_cls = sync_progress_dialog_cls
+        self._sets_vm = sets_view_model if sets_view_model is not None else SetsViewModel(db_path)
         self._sync_vm = SyncViewModel(self._db_path, executor=self._executor)
 
         self.setWindowTitle("BricksWhere")
@@ -59,7 +74,7 @@ class MainWindow(QMainWindow):
         sets_layout = QVBoxLayout(self._sets_tab)
         # use QTableView with a QAbstractTableModel for performance and testability
         self._sets_table = QTableView()
-        # select whole rows when clicked to make delete behavior intuitive
+        # select whole rows when clicked to make delete behavior work
         self._sets_table.setSelectionBehavior(QAbstractItemView.SelectRows)
         self._sets_table.setSelectionMode(QAbstractItemView.SingleSelection)
         # model provided below
@@ -80,6 +95,9 @@ class MainWindow(QMainWindow):
         self._bins_viewmodel = BinsViewModel(self._db_path)
         self._bins_model = BinsTableModel(self._bins_viewmodel)
         self._bins_table = QTableView(self)
+        # select whole rows when clicked to make delete behavior work
+        self._bins_table.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self._bins_table.setSelectionMode(QAbstractItemView.SingleSelection)
         self._bins_table.setModel(self._bins_model)
         self._bins_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self._bins_table.setSortingEnabled(True)
@@ -96,8 +114,6 @@ class MainWindow(QMainWindow):
         central_layout = QVBoxLayout(central)
         central_layout.addWidget(self._tab_widget)
         self.setCentralWidget(central)
-
-        self._sets_vm = SetsViewModel(self._db_path)
 
         # table model
         from .sets_table_model import SetsTableModel
@@ -122,7 +138,7 @@ class MainWindow(QMainWindow):
 
         # create and show modal progress dialog which will poll the queue and
         # instruct the view-model to cancel when the user clicks Cancel
-        dlg = SyncProgressDialog(self._sync_vm, parent=self)
+        dlg = self._sync_progress_dialog_cls(self._sync_vm, parent=self)
 
         # run modal dialog; it will close (switch to OK) when sync finishes
         dlg.exec()
@@ -134,14 +150,14 @@ class MainWindow(QMainWindow):
     # Table is backed by `SetsTableModel` which persists edits via the viewmodel.
 
     def _on_add_set(self):
-        set_num, ok = AddSetDialog.getText(self, None, self._db_path, "Add Set", "Set number:")
+        set_num, ok = self.exec_add_set_dialog(self, None, self._db_path, "Add Set", "Set number:")
         if not ok or not set_num:
             return
         try:
             self._sets_vm.add_user_set(set_num, 1, "")
             self._sets_model.load()
         except sqlite3.IntegrityError:
-            QMessageBox.critical(self, "Error", f"Set {set_num} already present")
+            self._message_box_cls.critical(self, "Error", f"Set {set_num} already present")
         except Exception:
             logger.exception("Failed to add user_set %s", set_num)
 
@@ -162,30 +178,22 @@ class MainWindow(QMainWindow):
 
     def _on_add_bin(self):
         add_vm = AddBinViewModel(self._db_path)
-        dlg = AddBinDialog(self, viewmodel=add_vm)
-        ok = dlg.exec()
+        part, ok = self.exec_add_bin_dialog(self, add_vm)
         if not ok:
             return
-        part = dlg.input.text()
 
         try:
             self._bins_viewmodel.add_user_part_bin(part, None, "")
             self._bins_model.load()
         except sqlite3.IntegrityError:
-            QMessageBox.critical(self, "Error", f"Part {part} already present in bins")
+            self._message_box_cls.critical(self, "Error", f"Part {part} already present in bins")
         except Exception:
             logger.exception("Failed to add user_part_bin %s", part)
 
     def _on_report_bin_range(self):
         # show the bin range dialog; dialog currently does nothing on Generate
         try:
-            # allow tests to monkeypatch `BinRangeDialog` on this module by
-            # preferring a module-level name if present; otherwise import
-            dlg_cls = globals().get("BinRangeDialog")
-            if dlg_cls is None:
-                from .bin_range_dialog import BinRangeDialog as dlg_cls
-
-            dlg = dlg_cls(self, executor=self._executor)
+            dlg = self.bin_range_dialog_cls(self, executor=self._executor)
             dlg.exec()
         except Exception:
             logger.exception("Failed showing Bin Range dialog")

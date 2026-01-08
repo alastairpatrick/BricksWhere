@@ -33,12 +33,11 @@ class FakeSetsVM:
         self._rows = [r for r in self._rows if r["set_num"] != set_num]
 
 
-def test_sets_table_shows_rows(monkeypatch, make_window, tmp_path):
+def test_sets_table_shows_rows(make_window, tmp_path):
     import view.main_window as mw
 
     # inject fake SetsViewModel
-    monkeypatch.setattr(mw, "SetsViewModel", FakeSetsVM)
-    win = make_window("db_sets")
+    win = make_window("db_sets", sets_view_model=FakeSetsVM())
 
     # table should have been populated via model
     tbl = win._sets_table
@@ -48,10 +47,8 @@ def test_sets_table_shows_rows(monkeypatch, make_window, tmp_path):
     assert model.data(model.index(0, 1)) == "One"
 
 
-def test_add_duplicate_shows_error(monkeypatch, make_window):
+def test_add_duplicate_shows_error(make_window):
     import view.main_window as mw
-
-    monkeypatch.setattr(mw, "SetsViewModel", FakeSetsVM)
 
     # capture QMessageBox.critical calls
     called = {"msg": None}
@@ -61,16 +58,11 @@ def test_add_duplicate_shows_error(monkeypatch, make_window):
         def critical(parent, title, text):
             called["msg"] = text
 
-    monkeypatch.setattr(mw, "QMessageBox", FakeMsg)
-
-    class FakeAddSetDialog:
-        @staticmethod
-        def getText(parent, viewmodel=None, db_path="data.db", title="Add Set", label="Set number:"):
-            return ("S1", True)  # duplicate
-    monkeypatch.setattr(mw, "AddSetDialog", FakeAddSetDialog)
-
     # create window and inject dialog provider to avoid modal dialog
-    win = make_window("db_sets2")
+    win = make_window("db_sets2",
+                      sets_view_model=FakeSetsVM(),
+                      message_box_cls=FakeMsg,
+                      exec_add_set_dialog=lambda *a, **k: ("S1", True))
     win._sets_vm = FakeSetsVM()
     # call handler which will attempt to add and trigger QMessageBox.critical via duplicate
     win._on_add_set()
@@ -80,11 +72,10 @@ def test_add_duplicate_shows_error(monkeypatch, make_window):
     assert called["msg"] is None or isinstance(called["msg"], str)
 
 
-def test_delete_removes_row(monkeypatch, make_window):
+def test_delete_removes_row(make_window):
     import view.main_window as mw
 
-    monkeypatch.setattr(mw, "SetsViewModel", FakeSetsVM)
-    win = make_window("db_sets_del")
+    win = make_window("db_sets_del", sets_view_model=FakeSetsVM())
     tbl = win._sets_table
     model = tbl.model()
     assert model.rowCount() == 2

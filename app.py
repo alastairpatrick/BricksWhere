@@ -52,7 +52,9 @@ def app_entry():
     )
 
     app = QApplication(sys.argv)
-    win = MainWindow(DB_PATH, executor=executor, requests_session=requests_session)
+    win = MainWindow(DB_PATH,
+                     executor=executor,
+                     requests_session=requests_session)
 
     # If DB was just created, automatically start initial sync
     if not db_exists:

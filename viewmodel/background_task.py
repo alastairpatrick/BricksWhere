@@ -57,9 +57,13 @@ class BackgroundTask(QObject):
         return self._future
 
     def _poll_q(self) -> None:
-        assert shiboken6.isValid(self), "BackgroundTask is not valid"
         while not self._progress_q.empty():
             msg = self._progress_q.get_nowait()
+
+            # This assert is intended to help find an intermittent segmentation fault.
+            # It can be deleted once the root cause of that fault is found.
+            assert shiboken6.isValid(self), "BackgroundTask is not valid"
+
             self.progressed.emit(msg)
         if self._future is not None and self._future.done():
             try:
@@ -69,5 +73,14 @@ class BackgroundTask(QObject):
             future = self._future
             # Make _future None here in case the completed signal handler calls run() again
             self._future = None
+
+            # This assert is intended to help find an intermittent segmentation fault.
+            # It can be deleted once the root cause of that fault is found.
+            assert shiboken6.isValid(self), "BackgroundTask is not valid"
+            
             self.completed.emit(future)
 
+    def shutdown(self) -> None:
+        """Stop the background task and clean up resources."""
+        self._timer.stop()
+        self._cancel_event.set()

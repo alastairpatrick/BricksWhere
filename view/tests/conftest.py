@@ -1,5 +1,6 @@
 import pytest
 from PySide6.QtWidgets import QApplication
+from view.main_window import MainWindow
 
 class FakeDialog:
     def __init__(self, sync_vm, parent=None):
@@ -11,16 +12,8 @@ class FakeDialog:
 
 
 @pytest.fixture
-def patched_mw(monkeypatch):
-    import view.main_window as mw
-    # patch dialog to avoid modal exec
-    monkeypatch.setattr(mw, "SyncProgressDialog", FakeDialog)
-    return mw
-
-
-@pytest.fixture
-def make_window(patched_mw, tmp_path):
-    def _make(name="db"):
-        return patched_mw.MainWindow(str(tmp_path / name))
+def make_window(tmp_path):
+    def _make(name="db", **kwargs):
+        return MainWindow(str(tmp_path / name), sync_progress_dialog_cls=FakeDialog, **kwargs)
 
     return _make
