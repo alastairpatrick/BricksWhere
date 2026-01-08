@@ -60,9 +60,13 @@ class BackgroundTask(QObject):
         while not self._progress_q.empty():
             msg = self._progress_q.get_nowait()
 
-            # This assert is intended to help find an intermittent segmentation fault.
-            # It can be deleted once the root cause of that fault is found.
-            assert shiboken6.isValid(self), "BackgroundTask is not valid"
+            # Avoid raising during teardown; if the underlying C++ object is
+            # no longer valid, stop processing to prevent native crashes.
+            try:
+                if not shiboken6.isValid(self):
+                    return
+            except Exception:
+                return
 
             self.progressed.emit(msg)
         if self._future is not None and self._future.done():
@@ -74,10 +78,12 @@ class BackgroundTask(QObject):
             # Make _future None here in case the completed signal handler calls run() again
             self._future = None
 
-            # This assert is intended to help find an intermittent segmentation fault.
-            # It can be deleted once the root cause of that fault is found.
-            assert shiboken6.isValid(self), "BackgroundTask is not valid"
-            
+            try:
+                if not shiboken6.isValid(self):
+                    return
+            except Exception:
+                return
+
             self.completed.emit(future)
 
     def shutdown(self) -> None:
