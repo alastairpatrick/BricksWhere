@@ -1,9 +1,20 @@
+
 import time
+import io
 from typing import Optional
 from concurrent.futures import Future
 
 from viewmodel.background_task import BackgroundTask
 
+# Try to use reportlab if available for nicer PDF generation; fall back to
+# the built-in minimal generator when reportlab isn't installed.
+try:
+    from reportlab.pdfgen import canvas
+    from reportlab.lib.pagesizes import letter
+    _HAVE_REPORTLAB = True
+except Exception:
+    print("reportlab not available; using minimal PDF generator")
+    _HAVE_REPORTLAB = False
 
 class BinRangeViewModel:
     def __init__(self, executor, name: str = "Bin Range Report", delay: float = 1.0):
@@ -31,7 +42,17 @@ class BinRangeViewModel:
 
 
 def _make_hello_pdf_bytes() -> bytes:
-    # Build a minimal PDF programmatically with correct offsets
+    if _HAVE_REPORTLAB:
+        buf = io.BytesIO()
+        c = canvas.Canvas(buf, pagesize=letter)
+        c.setFont("Helvetica", 24)
+        # place "Hello, World" near the top-left with some margin
+        c.drawString(72, 720, "Hello, World")
+        c.showPage()
+        c.save()
+        return buf.getvalue()
+
+    # Fallback: Build a minimal PDF programmatically with correct offsets
     parts = []
     offsets = []
 
