@@ -21,9 +21,9 @@ def test_generate_disabled_until_valid_range():
     assert gen.isEnabled()
 
 
-def test_include_images_unchecked_by_default_and_cancel_closes():
+def test_include_images_checked_by_default_and_cancel_closes():
     dlg = BinRangeDialog()
-    assert dlg.include_images is False
+    assert dlg.include_images is True
     # clicking cancel should reject the dialog
     dlg._cancel.click()
     assert dlg.result() == QDialog.Rejected

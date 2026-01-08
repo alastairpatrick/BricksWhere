@@ -1,6 +1,7 @@
 
 import time
 import io
+import logging
 from typing import Optional
 from concurrent.futures import Future
 
@@ -10,15 +11,18 @@ from model.db import create_connection
 from reportlab.lib.pagesizes import letter
 from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image as RLImage
+import requests
 
+logger = logging.getLogger(__name__)
 
 class BinRangeViewModel:
-    def __init__(self, executor, db_path: str = "data.db", name: str = "Bin Range Report", delay: float = 1.0):
+    def __init__(self, executor, db_path: str = "data.db", name: str = "Bin Range Report", delay: float = 1.0, requests_session=None):
         # executor may be a FakeExecutor in tests
         self.background_task = BackgroundTask(executor, name=name)
         self._delay = delay
         self.db_path = db_path
+        self.requests_session = requests_session
 
     def generate_pdf(self, start: str, end: str, include_images: bool) -> Future:
         """Start background generation of a PDF and return a Future.
@@ -33,7 +37,7 @@ class BinRangeViewModel:
             progress("Querying owned parts")
             rows = _fetch_owned_parts(self.db_path, start, end)
             progress(f"Rendering {len(rows)} rows to PDF")
-            pdf = _render_bin_range_pdf(rows, start, end)
+            pdf = _render_bin_range_pdf(rows, start, end, include_images, requests_session=self.requests_session)
             return pdf
 
         return self.background_task.run(worker)
@@ -49,7 +53,7 @@ def _fetch_owned_parts(db_path: str, start: str, end: str):
     """
     sql = (
         "SELECT COALESCE(upb.bin_num, ip.part_num) AS bin_num, ip.part_num, COALESCE(p.name, ''), "
-        "SUM(ip.quantity * us.quantity) as qty "
+        "SUM(ip.quantity * us.quantity) as qty, ip.img_url "
         "FROM user_sets us "
         "JOIN inventories i ON i.set_num = us.set_num "
         "JOIN inventory_parts ip ON ip.inventory_id = i.id "
@@ -76,9 +80,11 @@ def _fetch_owned_parts(db_path: str, start: str, end: str):
     return filtered
 
 
-def _render_bin_range_pdf(rows, start: str, end: str) -> bytes:
+def _render_bin_range_pdf(rows, start: str, end: str, include_images: bool, requests_session=None) -> bytes:
     """Render the rows to a multi-page PDF (US Letter), repeating headers and
-    adding page numbers. Returns PDF bytes.
+    adding page numbers. Returns PDF bytes. If `include_images` is True, try to
+    download an image for each row using `requests_session` (if provided) or
+    `requests` otherwise, and place it in the rightmost column.
     """
     buf = io.BytesIO()
     doc = SimpleDocTemplate(buf, pagesize=letter,
@@ -92,13 +98,51 @@ def _render_bin_range_pdf(rows, start: str, end: str) -> bytes:
     story.append(Spacer(1, 12))
 
     # table header
-    data = [["Bin", "Part #", "Part Name", "Quantity"]]
+    if include_images:
+        data = [["Bin", "Part #", "Part Name", "Quantity", "Image"]]
+    else:
+        data = [["Bin", "Part #", "Part Name", "Quantity"]]
+
+    # Prepare image download helper
+    def _download_image(url):
+        if not url:
+            return None
+        try:
+            sess = requests_session or requests
+            # requests_cache CachedSession implements .get
+            resp = sess.get(url, timeout=5)
+            resp.raise_for_status()
+            return resp.content
+        except Exception as e:
+            logger.error("Failed to download image %s: %s", url, e)
+            return None
+
     for r in rows:
-        # r: (bin_num, part_num, part_name, qty)
-        data.append([str(r[0] or ''), str(r[1] or ''), str(r[2] or ''), str(r[3] or '')])
+        # r: (bin_num, part_num, part_name, qty, img_url)
+        bin_val = str(r[0] or '')
+        part_num = str(r[1] or '')
+        part_name = str(r[2] or '')
+        qty = str(r[3] or '')
+        if include_images:
+            img_url = r[4] if len(r) > 4 else None
+            img_bytes = _download_image(img_url)
+            if img_bytes:
+                try:
+                    img_buf = io.BytesIO(img_bytes)
+                    img = RLImage(img_buf, width=40, height=40)
+                except Exception:
+                    img = ''
+            else:
+                img = ''
+            data.append([bin_val, part_num, part_name, qty, img])
+        else:
+            data.append([bin_val, part_num, part_name, qty])
 
     # create table; let it split across pages and repeat the first row
-    table = Table(data, repeatRows=1, colWidths=[80, 120, 260, 60])
+    if include_images:
+        table = Table(data, repeatRows=1, colWidths=[70, 110, 260, 50, 60])
+    else:
+        table = Table(data, repeatRows=1, colWidths=[80, 120, 260, 60])
     table.setStyle(TableStyle([
         ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
         ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),

@@ -208,7 +208,7 @@ class MainWindow(QMainWindow):
     def _on_report_bin_range(self):
         # show the bin range dialog; dialog currently does nothing on Generate
         try:
-            dlg = self.bin_range_dialog_cls(self, executor=self._executor)
+            dlg = self.bin_range_dialog_cls(self, executor=self._executor, requests_session=self._requests_session)
             dlg.exec()
         except Exception:
             logger.exception("Failed showing Bin Range dialog")

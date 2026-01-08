@@ -37,13 +37,14 @@ class BinRangeDialog(QDialog):
     def __init__(self, parent=None,
                  executor=None,
                  viewmodel=None,
+                 requests_session=None,
                  pdf_viewer_cls=PdfViewer):
         super().__init__(parent)
         self._pdf_viewer_cls = pdf_viewer_cls
 
         self.setWindowTitle("Bin Range")
 
-        self._vm = viewmodel if viewmodel is not None else BinRangeViewModel(executor=executor)
+        self._vm = viewmodel if viewmodel is not None else BinRangeViewModel(executor=executor, requests_session=requests_session)
 
         self._vm.background_task.completed.connect(self.on_generate_completed)
 
@@ -71,7 +72,7 @@ class BinRangeDialog(QDialog):
         v.addLayout(row2)
 
         self._include_images = QCheckBox("Include Images")
-        self._include_images.setChecked(False)
+        self._include_images.setChecked(True)
         v.addWidget(self._include_images)
 
         # PDF viewer placed between checkbox and buttons
