@@ -1,6 +1,6 @@
 """Sorting helpers for bin/set/part identifiers.
 
-Expose a `bin_key` function that returns a tuple suitable for ordering such
+Expose a `int_prefixed_key` function that returns a tuple suitable for ordering such
 that values are ordered primarily by the integer prefix (leading digits),
 falling back to case-insensitive string comparison to break ties.
 """
@@ -24,7 +24,7 @@ def _leading_int(s: str) -> int:
         return 0
 
 
-def bin_key(s: str) -> Tuple[int, str]:
+def int_prefixed_key(s: str) -> Tuple[int, str]:
     """Return a sort key for bin/set/part identifiers.
 
     The key is (leading_integer_prefix, lowercased_string). Leading digits are

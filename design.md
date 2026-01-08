@@ -19,7 +19,7 @@ The primary features are:
 The application is implemented in Python. The UI uses Qt via PySide6. The local database is SQLite. Additional runtime libraries in the repository include `requests-cache` for HTTP response caching. BricksWhere is distributed under the MIT license and dependencies should be license-compatible.
 # Database
 ## Local Replica
-The application uses a local SQLite database that contains three broad categories of tables:
+The application uses a local SQLite database that contains three broad categories of table:
 1. A read-only replica of Rebrickable's CSV tables. These tables are only modified during an explicit synchronization run (or the initial sync when the database is first created).
 2. Tables used by the HTTP cache (see HTTP Cache below).
 3. User-provided persistent tables (e.g., `user_sets`, bin mappings, quantities, remarks).
@@ -27,13 +27,12 @@ We avoid scraping Rebrickable HTML pages; the app uses the published CSV downloa
 We intentionally do not add user columns to the replica tables. Persistent user data is stored in separate application tables that reference replica IDs (for example `part_num` or `color_id`).
 ### Local Replica Schema
 The repository defines the replica tables that map directly to Rebrickable CSV files (for example `parts`, `colors`, `sets`, `elements`, `themes`, `inventories`, `inventory_parts`, etc.). Schema details are implemented in `model/db.py` and created programmatically by `create_schema(conn)`.
-Key application tables include `user_sets` (see below) and the replica tables used for lookups and read-only queries.
 ## HTTP Cache
 Images and other HTTP resources are fetched on demand and cached locally. The application uses `requests-cache` with a SQLite backend so cached HTTP responses are persisted in the application's database file. This reduces repeated downloads and respects HTTP cache headers when possible.
 # Architecture
 The project uses Model-View-ViewModel (MVVM). Business logic, I/O, and data storage live in `model/`. UI orchestration and testable presentation logic live in `viewmodel/`. UI widgets live in `view/` and should be thin; views interact with view-models through callbacks, signals, and small public APIs.
 ## Dependency Injection
-We don't use a dependency injection framework. Dependencies are most often passed through named constructor parameters. We are trying to move away from using monkey patching for dependency injection by unit tests. Monkey patching can still be used in unit tests, but only when the effect cannot be achieved by passing dependencies directly to a constructor.
+We don't use a dependency injection framework. Dependencies are most often passed through named constructor parameters. For unit test specific dependency injection, we are moving away from using monkey patching. Monkey patching can still be used in unit tests, but only when the effect cannot be achieved by passing dependencies directly to a constructor.
 ## Testing
 Tests are organized alongside the code under `model/tests/`, `viewmodel/tests/`, and `view/tests/`. The test suite uses `pytest`. View related unit tests must not cause the operating system to display windows and certainly must not require manual user intervention. Tests must be performant; otherwise AI agents might timeout before seeing the results of tests they request be run.
 ## Threading
@@ -44,8 +43,6 @@ Instead, we use an "executor" fixture in tests, which returns an executor that r
 # User Interface
 Many UI widgets must be updated after a synchronization or when the user changes persistent data. The implementation uses view-models to keep views thin and testable; view-models notify views via signals so UI components can update themselves.
 The codebase exposes application-level hooks and testing helpers to facilitate deterministic unit tests of UI-related behavior.
-## Synchronization Progress Dialog
-While synchronizing with Rebrickable the application shows a progress dialog with a message list and progress bar. The dialog provides a Cancel button; requesting cancel causes the synchronization to stop and the database changes to be rolled back. When synchronization completes (successfully, failed, or cancelled) the dialog switches to an OK state and can be dismissed.
 # Security
 Treat external files (downloads from Rebrickable or files opened by the user) as untrusted. The codebase defends against SQL injection by:
 - validating identifiers used to build SQL statements (see `model.db.sanitize_identifier`),

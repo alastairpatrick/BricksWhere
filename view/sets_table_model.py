@@ -110,8 +110,8 @@ class SetsTableModel(QAbstractTableModel):
         reverse = order == Qt.DescendingOrder
         key = None
         if column == self.SetNumCol:
-            from model.sorting import bin_key
-            key = lambda r: bin_key(r.get("set_num", ""))
+            from model.sorting import int_prefixed_key
+            key = lambda r: int_prefixed_key(r.get("set_num", ""))
         elif column == self.NameCol:
             key = lambda r: r.get("name", "")
         elif column == self.QuantityCol:

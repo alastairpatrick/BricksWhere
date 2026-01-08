@@ -67,16 +67,16 @@ def _fetch_owned_parts(db_path: str, start: str, end: str):
         rows = cur.fetchall()
 
     # Use shared sorting helper so the same ordering is used across the app.
-    from model.sorting import bin_key
+    from model.sorting import int_prefixed_key
 
-    start_key = bin_key(start)
-    end_key = bin_key(end)
+    start_key = int_prefixed_key(start)
+    end_key = int_prefixed_key(end)
 
     # Filter rows in Python according to the same ordering semantics.
-    filtered = [r for r in rows if start_key <= bin_key(r[0]) <= end_key]
+    filtered = [r for r in rows if start_key <= int_prefixed_key(r[0]) <= end_key]
 
     # Finally sort the filtered rows deterministically for the report.
-    filtered.sort(key=lambda r: (bin_key(r[0]), str(r[1] or '')))
+    filtered.sort(key=lambda r: (int_prefixed_key(r[0]), str(r[1] or '')))
     return filtered
 
 
@@ -119,6 +119,7 @@ def _render_bin_range_pdf(rows, start: str, end: str, include_images: bool, requ
             logger.error("Failed to download image %s: %s", url, e)
             return None
 
+    body_style = styles.get('BodyText', styles['Normal'])
     for r in rows:
         # r: (bin_num, part_num, part_name, qty, img_url)
         bin_val = str(r[0] or '')
@@ -141,9 +142,12 @@ def _render_bin_range_pdf(rows, start: str, end: str, include_images: bool, requ
                     img = ''
             else:
                 img = ''
-            data.append([bin_val, part_num, part_name, qty, img])
+            # wrap the part name so long names increase row height instead of overlapping
+            part_name_par = Paragraph(part_name, body_style)
+            data.append([bin_val, part_num, part_name_par, qty, img])
         else:
-            data.append([bin_val, part_num, part_name, qty])
+            part_name_par = Paragraph(part_name, body_style)
+            data.append([bin_val, part_num, part_name_par, qty])
 
     # create table; let it split across pages and repeat the first row
     if include_images:
