@@ -171,6 +171,12 @@ class MainWindow(QMainWindow):
         try:
             self._sets_vm.add_user_set(set_num, 1, "")
             self._sets_model.load()
+            # select and scroll to the newly added row
+            for i in range(self._sets_model.rowCount()):
+                if self._sets_model.data(self._sets_model.index(i, 0)) == set_num:
+                    self._sets_table.selectRow(i)
+                    self._sets_table.scrollTo(self._sets_model.index(i, 0))
+                    break
         except sqlite3.IntegrityError:
             self._message_box_cls.critical(self, "Error", f"Set {set_num} already present")
         except Exception:
@@ -200,6 +206,12 @@ class MainWindow(QMainWindow):
         try:
             self._bins_viewmodel.add_user_part_bin(part, None, "")
             self._bins_model.load()
+            # select and scroll to the newly added row
+            for i in range(self._bins_model.rowCount()):
+                if self._bins_model.data(self._bins_model.index(i, 0)) == part:
+                    self._bins_table.selectRow(i)
+                    self._bins_table.scrollTo(self._bins_model.index(i, 0))
+                    break
         except sqlite3.IntegrityError:
             self._message_box_cls.critical(self, "Error", f"Part {part} already present in bins")
         except Exception:
