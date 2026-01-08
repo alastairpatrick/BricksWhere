@@ -5,17 +5,12 @@ from viewmodel.add_set_viewmodel import AddSetViewModel
 class AddSetDialog(QDialog):
     """Dialog that asks for a set number and only enables OK when the set exists in the `sets` table."""
 
-    def __init__(self, parent=None, viewmodel: AddSetViewModel = None, db_path: str = "data.db", title: str = "Add Set", label: str = "Set number:"):
+    def __init__(self, parent=None, viewmodel: AddSetViewModel = None):
         super().__init__(parent)
-        self.setWindowTitle(title)
-        self._db_path = db_path
-        # allow injecting a fake viewmodel for tests; otherwise use DB-backed VM
-        if viewmodel is None:
-            self._vm = AddSetViewModel(db_path)
-        else:
-            self._vm = viewmodel
+        self.setWindowTitle("Add Set")
+        self._vm = viewmodel
 
-        self._label = QLabel(label)
+        self._label = QLabel("Set number:")
         self._edit = QLineEdit()
         self._edit.setPlaceholderText("e.g. 40743-1")
 
@@ -109,12 +104,6 @@ class AddSetDialog(QDialog):
         exact = self._vm.set_exists(prefix) if prefix else False
         ok_btn.setEnabled(exact)
 
-    @staticmethod
-    def getText(parent, viewmodel: AddSetViewModel = None, db_path: str = "data.db", title: str = "Add Set", label: str = "Set number:"):
-        dlg = AddSetDialog(parent=parent, viewmodel=viewmodel, db_path=db_path, title=title, label=label)
-        accepted = dlg.exec() == QDialog.Accepted
-        return (dlg._edit.text(), accepted)
-
     def _on_results_clicked(self, row, column):
         # ignore ellipsis row (first column '...')
         item = self._results.item(row, 0)
@@ -137,3 +126,9 @@ class AddSetDialog(QDialog):
                 ok_btn.setEnabled(True)
         finally:
             self._suppress_autocomplete = False
+
+    @staticmethod
+    def getText(parent, viewmodel: AddSetViewModel):
+        dlg = AddSetDialog(parent=parent, viewmodel=viewmodel)
+        accepted = dlg.exec() == QDialog.Accepted
+        return (dlg._edit.text(), accepted)

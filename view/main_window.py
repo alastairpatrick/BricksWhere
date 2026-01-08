@@ -5,6 +5,7 @@ from PySide6.QtCore import Signal, Qt
 import sqlite3
 
 from view.bin_range_dialog import BinRangeDialog
+from viewmodel.add_set_viewmodel import AddSetViewModel
 
 logger = logging.getLogger(__name__)
 
@@ -150,7 +151,8 @@ class MainWindow(QMainWindow):
     # Table is backed by `SetsTableModel` which persists edits via the viewmodel.
 
     def _on_add_set(self):
-        set_num, ok = self.exec_add_set_dialog(self, None, self._db_path, "Add Set", "Set number:")
+        add_vm = AddSetViewModel(self._db_path)
+        set_num, ok = self.exec_add_set_dialog(self, add_vm)
         if not ok or not set_num:
             return
         try:

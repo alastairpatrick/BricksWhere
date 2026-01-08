@@ -1,6 +1,8 @@
 from PySide6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QTableWidget, QTableWidgetItem
 from PySide6.QtCore import Qt
 
+from viewmodel.add_bin_viewmodel import AddBinViewModel
+
 
 class AddBinDialog(QDialog):
     def __init__(self, parent=None, viewmodel=None):
@@ -93,7 +95,7 @@ class AddBinDialog(QDialog):
             self._suppress_autocomplete = False
 
     @staticmethod
-    def getText(parent=None, viewmodel=None):
+    def getText(parent, viewmodel: AddBinViewModel):
         dlg = AddBinDialog(parent=parent, viewmodel=viewmodel)
         accepted = dlg.exec() == QDialog.Accepted
         return (dlg.input.text(), accepted)

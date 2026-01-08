@@ -32,6 +32,8 @@ Key application tables include `user_sets` (see below) and the replica tables us
 Images and other HTTP resources are fetched on demand and cached locally. The application uses `requests-cache` with a SQLite backend so cached HTTP responses are persisted in the application's database file. This reduces repeated downloads and respects HTTP cache headers when possible.
 # Architecture
 The project uses Model-View-ViewModel (MVVM). Business logic, I/O, and data storage live in `model/`. UI orchestration and testable presentation logic live in `viewmodel/`. UI widgets live in `view/` and should be thin; views interact with view-models through callbacks, signals, and small public APIs.
+## Dependency Injection
+We don't use a dependency injection framework. Dependencies are most often passed through named constructor parameters. We are trying to move away from using monkey patching for dependency injection by unit tests. Monkey patching can still be used in unit tests, but only when the effect cannot be achieved by passing dependencies directly to a constructor.
 ## Testing
 Tests are organized alongside the code under `model/tests/`, `viewmodel/tests/`, and `view/tests/`. The test suite uses `pytest`. View related unit tests must not cause the operating system to display windows and certainly must not require manual user intervention. Tests must be performant; otherwise AI agents might timeout before seeing the results of tests they request be run.
 ## Threading
