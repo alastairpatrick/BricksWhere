@@ -37,7 +37,7 @@ class BinRangeViewModel:
             progress("Querying owned parts")
             rows = _fetch_owned_parts(self.db_path, start, end)
             progress(f"Rendering {len(rows)} rows to PDF")
-            pdf = _render_bin_range_pdf(rows, start, end, include_images, requests_session=self.requests_session)
+            pdf = _render_bin_range_pdf(rows, start, end, include_images, requests_session=self.requests_session, progress=progress, is_cancelled=is_cancelled)
             return pdf
 
         return self.background_task.run(worker)
@@ -80,7 +80,7 @@ def _fetch_owned_parts(db_path: str, start: str, end: str):
     return filtered
 
 
-def _render_bin_range_pdf(rows, start: str, end: str, include_images: bool, requests_session=None) -> bytes:
+def _render_bin_range_pdf(rows, start: str, end: str, include_images: bool, requests_session=None, progress=None, is_cancelled=None) -> bytes:
     """Render the rows to a multi-page PDF (US Letter), repeating headers and
     adding page numbers. Returns PDF bytes. If `include_images` is True, try to
     download an image for each row using `requests_session` (if provided) or
@@ -104,9 +104,11 @@ def _render_bin_range_pdf(rows, start: str, end: str, include_images: bool, requ
         data = [["Bin", "Part #", "Part Name", "Quantity"]]
 
     # Prepare image download helper
-    def _download_image(url):
+    def _download_image(url, part_num=None):
         if not url:
             return None
+        if progress:
+            progress(f"Downloading image for {part_num or ''}")
         try:
             sess = requests_session or requests
             # requests_cache CachedSession implements .get
@@ -125,7 +127,12 @@ def _render_bin_range_pdf(rows, start: str, end: str, include_images: bool, requ
         qty = str(r[3] or '')
         if include_images:
             img_url = r[4] if len(r) > 4 else None
-            img_bytes = _download_image(img_url)
+            # abort if cancelled
+            if is_cancelled and is_cancelled():
+                if progress:
+                    progress("Generation cancelled")
+                return b""
+            img_bytes = _download_image(img_url, part_num)
             if img_bytes:
                 try:
                     img_buf = io.BytesIO(img_bytes)
