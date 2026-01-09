@@ -13,9 +13,9 @@ from viewmodel import SyncViewModel
 from viewmodel.sets_viewmodel import SetsViewModel
 from viewmodel.bins_viewmodel import BinsViewModel
 from .bins_table_model import BinsTableModel
-from .add_bin_dialog import AddBinDialog
+from .choose_bin_dialog import ChooseBinDialog
 from viewmodel.add_bin_viewmodel import AddBinViewModel
-from .add_set_dialog import AddSetDialog
+from .choose_set_dialog import ChooseSetDialog
 
 REPORTS_ENABLED = True
 try:
@@ -46,8 +46,8 @@ class MainWindow(QMainWindow):
                  message_box_cls=QMessageBox,
                  sync_progress_dialog_cls=SyncProgressDialog,
                  bin_range_dialog_cls=BinRangeDialog,
-                 exec_add_bin_dialog=AddBinDialog.getText,
-                 exec_add_set_dialog=AddSetDialog.getText):
+                 exec_add_bin_dialog=ChooseBinDialog.getText,
+                 exec_add_set_dialog=ChooseSetDialog.getText):
         super().__init__()
         self._db_path = db_path
         self._executor = executor

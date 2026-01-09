@@ -3,7 +3,7 @@ pytestmark = pytest.mark.usefixtures("app_qt")
 
 from PySide6.QtWidgets import QDialogButtonBox
 
-from view.add_set_dialog import AddSetDialog
+from view.choose_set_dialog import ChooseSetDialog
 
 
 class FakeVM:
@@ -23,7 +23,7 @@ class FakeVM:
 
 def test_ok_enabled_on_exact_match():
     vm = FakeVM([("T1", "Test One")])
-    dlg = AddSetDialog(None, viewmodel=vm)
+    dlg = ChooseSetDialog(None, viewmodel=vm)
     ok_btn = dlg._buttons.button(QDialogButtonBox.Ok)
     assert not ok_btn.isEnabled()
     dlg._edit.setText("T1")
@@ -32,7 +32,7 @@ def test_ok_enabled_on_exact_match():
 
 def test_autocomplete_single_match_selects_appended():
     vm = FakeVM([("670-1", "Mobile Crane")])
-    dlg = AddSetDialog(None, viewmodel=vm)
+    dlg = ChooseSetDialog(None, viewmodel=vm)
     dlg._edit.setText("670")
     assert dlg._edit.text() == "670-1"
     assert dlg._edit.selectedText() == "-1"
@@ -41,7 +41,7 @@ def test_autocomplete_single_match_selects_appended():
 def test_results_populated_and_ellipsis_and_click():
     rows = [(f"PFX{str(i).zfill(3)}", f"Name{i}") for i in range(150)]
     vm = FakeVM(rows)
-    dlg = AddSetDialog(None, viewmodel=vm)
+    dlg = ChooseSetDialog(None, viewmodel=vm)
     dlg._edit.setText("PFX")
     assert dlg._results.rowCount() == 101
     last_item = dlg._results.item(100, 0)

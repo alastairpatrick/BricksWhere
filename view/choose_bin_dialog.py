@@ -4,11 +4,11 @@ from PySide6.QtCore import Qt
 from viewmodel.add_bin_viewmodel import AddBinViewModel
 
 
-class AddBinDialog(QDialog):
-    def __init__(self, parent=None, viewmodel=None):
+class ChooseBinDialog(QDialog):
+    def __init__(self, parent=None, title="Add Bin", viewmodel=None):
         super().__init__(parent)
         self.vm = viewmodel
-        self.setWindowTitle("Add Bin")
+        self.setWindowTitle(title)
         self._build()
 
     def _build(self):
@@ -96,7 +96,7 @@ class AddBinDialog(QDialog):
 
     @staticmethod
     def getText(parent, viewmodel: AddBinViewModel):
-        dlg = AddBinDialog(parent=parent, viewmodel=viewmodel)
+        dlg = ChooseBinDialog(parent=parent, viewmodel=viewmodel)
         accepted = dlg.exec() == QDialog.Accepted
         return (dlg.input.text(), accepted)
     

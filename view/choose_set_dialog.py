@@ -2,12 +2,12 @@ from PySide6.QtWidgets import QDialog, QLabel, QLineEdit, QVBoxLayout, QDialogBu
 from PySide6.QtCore import Qt
 from viewmodel.add_set_viewmodel import AddSetViewModel
 
-class AddSetDialog(QDialog):
+class ChooseSetDialog(QDialog):
     """Dialog that asks for a set number and only enables OK when the set exists in the `sets` table."""
 
-    def __init__(self, parent=None, viewmodel: AddSetViewModel = None):
+    def __init__(self, parent=None, title="Add Set", viewmodel: AddSetViewModel = None):
         super().__init__(parent)
-        self.setWindowTitle("Add Set")
+        self.setWindowTitle(title)
         self._vm = viewmodel
 
         self._label = QLabel("Set number:")
@@ -129,6 +129,6 @@ class AddSetDialog(QDialog):
 
     @staticmethod
     def getText(parent, viewmodel: AddSetViewModel):
-        dlg = AddSetDialog(parent=parent, viewmodel=viewmodel)
+        dlg = ChooseSetDialog(parent=parent, viewmodel=viewmodel)
         accepted = dlg.exec() == QDialog.Accepted
         return (dlg._edit.text(), accepted)

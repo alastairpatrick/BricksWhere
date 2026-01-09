@@ -3,7 +3,7 @@ pytestmark = pytest.mark.usefixtures("app_qt")
 
 from PySide6.QtWidgets import QDialogButtonBox
 
-from view.add_bin_dialog import AddBinDialog
+from view.choose_bin_dialog import ChooseBinDialog
 
 
 class FakeVM:
@@ -23,7 +23,7 @@ class FakeVM:
 
 def test_ok_enabled_on_exact_match():
     vm = FakeVM([("P1", "Part One")])
-    dlg = AddBinDialog(viewmodel=vm)
+    dlg = ChooseBinDialog(viewmodel=vm)
     ok_btn = dlg.ok
     assert not ok_btn.isEnabled()
     dlg.input.setText("P1")
@@ -32,7 +32,7 @@ def test_ok_enabled_on_exact_match():
 
 def test_autocomplete_single_match_selects_appended():
     vm = FakeVM([("ABC-1", "Thing")])
-    dlg = AddBinDialog(viewmodel=vm)
+    dlg = ChooseBinDialog(viewmodel=vm)
     dlg.input.setText("ABC")
     assert dlg.input.text().startswith("ABC")
 
@@ -40,7 +40,7 @@ def test_autocomplete_single_match_selects_appended():
 def test_results_populated_and_ellipsis_and_click():
     rows = [(f"PFX{str(i).zfill(3)}", f"Name{i}") for i in range(150)]
     vm = FakeVM(rows)
-    dlg = AddBinDialog(viewmodel=vm)
+    dlg = ChooseBinDialog(viewmodel=vm)
     dlg.input.setText("PFX")
     assert dlg.results.rowCount() == 101
     last_item = dlg.results.item(100, 0)
