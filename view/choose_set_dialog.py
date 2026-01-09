@@ -1,11 +1,11 @@
 from PySide6.QtWidgets import QDialog, QLabel, QLineEdit, QVBoxLayout, QDialogButtonBox, QTableWidget, QTableWidgetItem, QHeaderView
 from PySide6.QtCore import Qt
-from viewmodel.add_set_viewmodel import AddSetViewModel
+from viewmodel.choose_set_viewmodel import ChooseSetViewModel
 
 class ChooseSetDialog(QDialog):
     """Dialog that asks for a set number and only enables OK when the set exists in the `sets` table."""
 
-    def __init__(self, parent=None, title="Add Set", viewmodel: AddSetViewModel = None):
+    def __init__(self, parent=None, title="Add Set", viewmodel: ChooseSetViewModel = None):
         super().__init__(parent)
         self.setWindowTitle(title)
         self._vm = viewmodel
@@ -128,7 +128,7 @@ class ChooseSetDialog(QDialog):
             self._suppress_autocomplete = False
 
     @staticmethod
-    def get_input(parent, viewmodel: AddSetViewModel):
+    def get_input(parent, viewmodel: ChooseSetViewModel):
         dlg = ChooseSetDialog(parent=parent, viewmodel=viewmodel)
         accepted = dlg.exec() == QDialog.Accepted
         return (dlg._edit.text(), accepted)

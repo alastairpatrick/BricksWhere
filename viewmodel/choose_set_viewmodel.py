@@ -1,8 +1,8 @@
 from model.db import create_connection
 
 
-class AddSetViewModel:
-    """ViewModel for AddSetDialog. Provides DB-backed lookup methods.
+class ChooseSetViewModel:
+    """ViewModel for ChooseSetDialog. Provides DB-backed lookup methods.
 
     Methods are small and testable. Tests can instantiate with a temporary
     database created by the test fixture.

@@ -4,7 +4,7 @@ from PySide6.QtGui import QAction
 from PySide6.QtCore import Signal, Qt
 import sqlite3
 
-from viewmodel.add_set_viewmodel import AddSetViewModel
+from viewmodel.choose_set_viewmodel import ChooseSetViewModel
 
 logger = logging.getLogger(__name__)
 
@@ -14,7 +14,7 @@ from viewmodel.sets_viewmodel import SetsViewModel
 from viewmodel.bins_viewmodel import BinsViewModel
 from .bins_table_model import BinsTableModel
 from .choose_bin_dialog import ChooseBinDialog
-from viewmodel.add_bin_viewmodel import AddBinViewModel
+from viewmodel.choose_bin_viewmodel import ChooseBinViewModel
 from .choose_set_dialog import ChooseSetDialog
 
 REPORTS_ENABLED = True
@@ -164,7 +164,7 @@ class MainWindow(QMainWindow):
     # Table is backed by `SetsTableModel` which persists edits via the viewmodel.
 
     def _on_add_set(self):
-        add_vm = AddSetViewModel(self._db_path)
+        add_vm = ChooseSetViewModel(self._db_path)
         set_num, ok = self.exec_add_set_dialog(self, add_vm)
         if not ok or not set_num:
             return
@@ -198,7 +198,7 @@ class MainWindow(QMainWindow):
             logger.exception("Failed to delete user_set %s", set_num)
 
     def _on_add_bin(self):
-        add_vm = AddBinViewModel(self._db_path)
+        add_vm = ChooseBinViewModel(self._db_path)
         part, ok = self.exec_add_bin_dialog(self, add_vm)
         if not ok:
             return

@@ -2,7 +2,7 @@ from contextlib import closing
 from model.db import create_connection
 
 
-class AddBinViewModel:
+class ChooseBinViewModel:
     def __init__(self, db_path: str = "data.db"):
         self.db_path = db_path
 

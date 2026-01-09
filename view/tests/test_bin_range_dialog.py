@@ -31,9 +31,9 @@ def test_include_images_checked_by_default_and_cancel_closes():
 
 def test_generate_displays_pdf(executor, app_qt):
     # provide a BinRangeViewModel with no delay so FakeExecutor won't block
-    from viewmodel.bin_range_viewmodel import BinRangeViewModel
+    from viewmodel.bin_report_viewmodel import BinReportViewModel
 
-    vm = BinRangeViewModel(executor, delay=0)
+    vm = BinReportViewModel(executor, delay=0)
 
     # fake PDF viewer that captures bytes
     captured = {}

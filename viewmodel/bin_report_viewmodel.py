@@ -16,7 +16,7 @@ import requests
 
 logger = logging.getLogger(__name__)
 
-class BinRangeViewModel:
+class BinReportViewModel:
     def __init__(self, executor, db_path: str = "data.db", name: str = "Bin Range Report", delay: float = 1.0, requests_session=None):
         # executor may be a FakeExecutor in tests
         self.background_task = BackgroundTask(executor, name=name)

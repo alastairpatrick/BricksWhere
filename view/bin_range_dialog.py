@@ -2,7 +2,7 @@ import logging
 from PySide6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QCheckBox, QFileDialog
 
 from view.pdf_viewer import PdfViewer
-from viewmodel.bin_range_viewmodel import BinRangeViewModel
+from viewmodel.bin_report_viewmodel import BinReportViewModel
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +23,7 @@ class BinRangeDialog(QDialog):
 
         self.setWindowTitle("Bin Range")
 
-        self._vm = viewmodel if viewmodel is not None else BinRangeViewModel(executor=executor, requests_session=requests_session)
+        self._vm = viewmodel if viewmodel is not None else BinReportViewModel(executor=executor, requests_session=requests_session)
 
         self._vm.background_task.completed.connect(self.on_generate_completed)
         self._vm.background_task.progressed.connect(self._on_progress)

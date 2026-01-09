@@ -1,6 +1,6 @@
 import pytest
 
-from viewmodel.add_set_viewmodel import AddSetViewModel
+from viewmodel.choose_set_viewmodel import ChooseSetViewModel
 
 
 @pytest.mark.schema
@@ -13,7 +13,7 @@ def test_prefix_and_exists(sqlite_db):
     conn.commit()
     conn.close()
 
-    vm = AddSetViewModel(db)
+    vm = ChooseSetViewModel(db)
     matches = vm.prefix_matches("A")
     assert any(m[0] == "A1" for m in matches)
     assert vm.set_exists("A1")
