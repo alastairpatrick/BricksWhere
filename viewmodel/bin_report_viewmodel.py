@@ -24,10 +24,14 @@ class BinReportViewModel:
         self.db_path = db_path
         self.requests_session = requests_session
 
-    def generate_pdf(self, start: str, end: str, include_images: bool) -> Future:
+    def generate_pdf(self, query: dict, include_images: bool) -> Future:
         """Start background generation of a PDF and return a Future.
 
         The Future's result() will be the PDF bytes.
+
+        'query' always has a 'type' key, with a string value indicating the type of report to generate...
+
+        Query type 'bin_range' requires 'start' and 'end' keys with string values (may be None for unbounded).
         """
         def worker(progress, is_cancelled):
             progress("Starting report generation")
@@ -35,17 +39,17 @@ class BinReportViewModel:
             if self._delay and self._delay > 0:
                 time.sleep(self._delay)
             progress("Querying owned parts")
-            rows = _fetch_owned_parts(self.db_path, start, end)
+            rows = _fetch_owned_parts(self.db_path, query)
             if is_cancelled():
                 raise BackgroundTaskCancelled()
             progress(f"Rendering {len(rows)} rows to PDF")
-            pdf = _render_bin_range_pdf(rows, start, end, include_images, requests_session=self.requests_session, progress=progress, is_cancelled=is_cancelled)
+            pdf = _render_bin_range_pdf(rows, include_images, requests_session=self.requests_session, progress=progress, is_cancelled=is_cancelled)
             return pdf
 
         return self.background_task.run(worker)
 
 
-def _fetch_owned_parts(db_path: str, start: str, end: str):
+def _fetch_owned_parts(db_path: str, query: dict):
     """Return a list of tuples (bin_num, part_num, part_name, quantity).
 
     Ownership is computed by joining user_sets -> inventories -> inventory_parts
@@ -53,16 +57,20 @@ def _fetch_owned_parts(db_path: str, start: str, end: str):
     explicit `user_part_bins` assignment is used when present; otherwise the
     implicit bin is the `part_num` itself.
     """
-    sql = (
-        "SELECT COALESCE(upb.bin_num, ip.part_num) AS bin_num, ip.part_num, COALESCE(p.name, ''), "
-        "SUM(ip.quantity * us.quantity) as qty, ip.img_url "
-        "FROM user_sets us "
-        "JOIN inventories i ON i.set_num = us.set_num "
-        "JOIN inventory_parts ip ON ip.inventory_id = i.id "
-        "LEFT JOIN user_part_bins upb ON upb.part_num = ip.part_num "
-        "LEFT JOIN parts p ON p.part_num = ip.part_num "
-        "GROUP BY bin_num, ip.part_num, p.name "
-    )
+    if query['type'] == 'bin_range':
+        sql = (
+            "SELECT COALESCE(upb.bin_num, ip.part_num) AS bin_num, ip.part_num, COALESCE(p.name, ''), "
+            "SUM(ip.quantity * us.quantity) as qty, ip.img_url "
+            "FROM user_sets us "
+            "JOIN inventories i ON i.set_num = us.set_num "
+            "JOIN inventory_parts ip ON ip.inventory_id = i.id "
+            "LEFT JOIN user_part_bins upb ON upb.part_num = ip.part_num "
+            "LEFT JOIN parts p ON p.part_num = ip.part_num "
+            "GROUP BY bin_num, ip.part_num, p.name "
+        )
+    else:
+        assert False, f"Unknown query type: {query['type']}"
+
     with create_connection(db_path) as conn, conn:
         cur = conn.cursor()
         cur.execute(sql)
@@ -71,7 +79,9 @@ def _fetch_owned_parts(db_path: str, start: str, end: str):
     # Use shared sorting helper so the same ordering is used across the app.
     from model.sorting import int_prefixed_key
 
+    start = query.get('start')
     start_key = int_prefixed_key(start) if start != None else (0, "")
+    end = query.get('end')
     end_key = int_prefixed_key(end) if end != None else (10000000, "")
 
     # Filter rows in Python according to the same ordering semantics.
@@ -82,7 +92,7 @@ def _fetch_owned_parts(db_path: str, start: str, end: str):
     return filtered
 
 
-def _render_bin_range_pdf(rows, start: str, end: str, include_images: bool, requests_session=None, progress=None, is_cancelled=None) -> bytes:
+def _render_bin_range_pdf(rows, include_images: bool, requests_session=None, progress=None, is_cancelled=None) -> bytes:
     """Render the rows to a multi-page PDF (US Letter), repeating headers and
     adding page numbers. Returns PDF bytes. If `include_images` is True, try to
     download an image for each row using `requests_session`, and place it in the

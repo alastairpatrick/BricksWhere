@@ -9,8 +9,8 @@ logger = logging.getLogger(__name__)
 class BinRangeDialog(QDialog):
     """Dialog prompting for a start and end bin number and an "Include Images" option.
 
-    Generate is disabled until both fields are non-empty and the end value
-    sorts after the start value (ascending string order).
+    Generate is disabled end value sorts after the start value (ascending string order).
+    If either start or end is blank, it is unbounded in that direction.
     """
 
     def __init__(self, parent=None,
@@ -111,7 +111,12 @@ class BinRangeDialog(QDialog):
         include = self.include_images
 
         # trigger generation
-        self._vm.generate_pdf(start if start != "" else None, end if end != "" else None, include)
+        query = {
+            'type': 'bin_range',
+            'start': start if start != "" else None,
+            'end': end if end != "" else None
+        }
+        self._vm.generate_pdf(query, include)
 
     def on_generate_completed(self, future):
         try:
