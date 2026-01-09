@@ -25,7 +25,7 @@ def test_include_images_checked_by_default_and_cancel_closes():
     dlg = BinRangeDialog()
     assert dlg.include_images is True
     # clicking cancel should reject the dialog
-    dlg._cancel.click()
+    dlg._close.click()
     assert dlg.result() == QDialog.Rejected
 
 

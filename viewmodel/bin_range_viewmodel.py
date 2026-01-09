@@ -5,7 +5,7 @@ import logging
 from typing import Optional
 from concurrent.futures import Future
 
-from viewmodel.background_task import BackgroundTask
+from viewmodel.background_task import BackgroundTask, BackgroundTaskCancelled
 from model.db import create_connection
 
 from reportlab.lib.pagesizes import letter
@@ -36,6 +36,8 @@ class BinRangeViewModel:
                 time.sleep(self._delay)
             progress("Querying owned parts")
             rows = _fetch_owned_parts(self.db_path, start, end)
+            if is_cancelled():
+                raise BackgroundTaskCancelled()
             progress(f"Rendering {len(rows)} rows to PDF")
             pdf = _render_bin_range_pdf(rows, start, end, include_images, requests_session=self.requests_session, progress=progress, is_cancelled=is_cancelled)
             return pdf
@@ -119,6 +121,8 @@ def _render_bin_range_pdf(rows, start: str, end: str, include_images: bool, requ
 
     body_style = styles.get('BodyText', styles['Normal'])
     for r in rows:
+        if is_cancelled():
+            raise BackgroundTaskCancelled()
         # r: (bin_num, part_num, part_name, qty, img_url)
         bin_val = str(r[0] or '')
         part_num = str(r[1] or '')
@@ -126,11 +130,6 @@ def _render_bin_range_pdf(rows, start: str, end: str, include_images: bool, requ
         qty = str(r[3] or '')
         if include_images:
             img_url = r[4] if len(r) > 4 else None
-            # abort if cancelled
-            if is_cancelled and is_cancelled():
-                if progress:
-                    progress("Generation cancelled")
-                return b""
             img_bytes = _download_image(img_url, part_num)
             if img_bytes:
                 try:

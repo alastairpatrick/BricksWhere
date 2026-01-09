@@ -90,3 +90,7 @@ class BackgroundTask(QObject):
         """Stop the background task and clean up resources."""
         self._timer.stop()
         self._cancel_event.set()
+
+class BackgroundTaskCancelled(Exception):
+    """Raised when a background task is cancelled."""
+    pass

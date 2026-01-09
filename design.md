@@ -36,7 +36,7 @@ We don't use a dependency injection framework. Dependencies are most often passe
 ## Testing
 Tests are organized alongside the code under `model/tests/`, `viewmodel/tests/`, and `view/tests/`. The test suite uses `pytest`. View related unit tests must not cause the operating system to display windows and certainly must not require manual user intervention. Tests must be performant; otherwise AI agents might timeout before seeing the results of tests they request be run.
 ## Threading
-There is a BackgroundTask class, which runs tasks on worker threads while signalling progress and completion through Qt signals. When a BackgroundTask completes, it emits a completed signal containing a Future, containing the task's result if it succeeded or the exception if it failed. It is expected that a BackgroundTask will raise an exception when it detects it should cancel. In this case, BackgroundTask.is_cancelled can be used to determine that cancellation was requested.
+There is a BackgroundTask class, which runs tasks on worker threads while signalling progress and completion through Qt signals. When a BackgroundTask completes, it emits a completed signal containing a Future, containing the task's result if it succeeded or the exception if it failed. Our preference is for BackgroundTasks to terminate by raising BackgroundTaskCancelled when they detect they have been cancelled.
 
 The unit tests are single threaded and we want them to stay that way because we make widespread use of monkey patching. Multi-threading and monkey patching are a brittle combination because of the danger of unexpected data races.
 Instead, we use an "executor" fixture in tests, which returns an executor that runs tasks on the main thread instead of a worker thread.
