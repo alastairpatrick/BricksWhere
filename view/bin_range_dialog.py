@@ -106,6 +106,8 @@ class BinRangeDialog(QDialog):
         self._cancel.clicked.connect(self.reject)
         # wire generate to trigger viewmodel pdf generation
         self._generate.clicked.connect(self._on_generate)
+
+        self._update_generate_state()
         
     def _on_progress(self, msg: str):
         # update status label with latest progress
@@ -114,11 +116,7 @@ class BinRangeDialog(QDialog):
     def _update_generate_state(self, _text=None):
         s = (self._start.text() or "").strip()
         e = (self._end.text() or "").strip()
-        if not s or not e:
-            self._generate.setEnabled(False)
-            return
-        # enable only if end sorts after start (ascending order)
-        self._generate.setEnabled(e > s)
+        self._generate.setEnabled(not s or not e or e > s)
 
     @property
     def include_images(self):
@@ -135,7 +133,7 @@ class BinRangeDialog(QDialog):
         include = self.include_images
 
         # trigger generation
-        self._vm.generate_pdf(start, end, include)
+        self._vm.generate_pdf(start if start != "" else None, end if end != "" else None, include)
 
     def on_generate_completed(self, future):
         try:

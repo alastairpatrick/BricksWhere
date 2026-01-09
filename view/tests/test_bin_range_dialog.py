@@ -9,10 +9,10 @@ from view.bin_range_dialog import BinRangeDialog
 def test_generate_disabled_until_valid_range():
     dlg = BinRangeDialog()
     gen = dlg._generate
-    assert not gen.isEnabled()
-    # partial input keeps it disabled
+    assert gen.isEnabled()
     dlg._start.setText("B")
-    assert not gen.isEnabled()
+    # only start -> enabled
+    assert gen.isEnabled()
     dlg._end.setText("A")
     # end sorts before start -> disabled
     assert not gen.isEnabled()

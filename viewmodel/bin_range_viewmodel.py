@@ -69,8 +69,8 @@ def _fetch_owned_parts(db_path: str, start: str, end: str):
     # Use shared sorting helper so the same ordering is used across the app.
     from model.sorting import int_prefixed_key
 
-    start_key = int_prefixed_key(start)
-    end_key = int_prefixed_key(end)
+    start_key = int_prefixed_key(start) if start != None else (0, "")
+    end_key = int_prefixed_key(end) if end != None else (10000000, "")
 
     # Filter rows in Python according to the same ordering semantics.
     filtered = [r for r in rows if start_key <= int_prefixed_key(r[0]) <= end_key]
@@ -83,8 +83,8 @@ def _fetch_owned_parts(db_path: str, start: str, end: str):
 def _render_bin_range_pdf(rows, start: str, end: str, include_images: bool, requests_session=None, progress=None, is_cancelled=None) -> bytes:
     """Render the rows to a multi-page PDF (US Letter), repeating headers and
     adding page numbers. Returns PDF bytes. If `include_images` is True, try to
-    download an image for each row using `requests_session` (if provided) or
-    `requests` otherwise, and place it in the rightmost column.
+    download an image for each row using `requests_session`, and place it in the
+    rightmost column.
     """
     buf = io.BytesIO()
     doc = SimpleDocTemplate(buf, pagesize=letter,
@@ -93,7 +93,7 @@ def _render_bin_range_pdf(rows, start: str, end: str, include_images: bool, requ
     styles = getSampleStyleSheet()
     story = []
 
-    title = Paragraph(f"Bin Range Report: {start} - {end}", styles['Title'])
+    title = Paragraph("Bin Range Report", styles['Title'])
     story.append(title)
     story.append(Spacer(1, 12))
 
@@ -110,9 +110,7 @@ def _render_bin_range_pdf(rows, start: str, end: str, include_images: bool, requ
         if progress:
             progress(f"Downloading image for {part_num or ''}")
         try:
-            sess = requests_session or requests
-            # requests_cache CachedSession implements .get
-            resp = sess.get(url, timeout=5)
+            resp = requests_session.get(url, timeout=5)
             resp.raise_for_status()
             return resp.content
         except Exception as e:
