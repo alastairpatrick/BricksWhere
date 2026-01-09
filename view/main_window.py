@@ -46,8 +46,8 @@ class MainWindow(QMainWindow):
                  message_box_cls=QMessageBox,
                  sync_progress_dialog_cls=SyncProgressDialog,
                  bin_range_dialog_cls=BinRangeDialog,
-                 exec_add_bin_dialog=ChooseBinDialog.getText,
-                 exec_add_set_dialog=ChooseSetDialog.getText):
+                 exec_add_bin_dialog=ChooseBinDialog.get_input,
+                 exec_add_set_dialog=ChooseSetDialog.get_input):
         super().__init__()
         self._db_path = db_path
         self._executor = executor

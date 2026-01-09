@@ -95,7 +95,7 @@ class ChooseBinDialog(QDialog):
             self._suppress_autocomplete = False
 
     @staticmethod
-    def getText(parent, viewmodel: AddBinViewModel):
+    def get_input(parent, viewmodel: AddBinViewModel):
         dlg = ChooseBinDialog(parent=parent, viewmodel=viewmodel)
         accepted = dlg.exec() == QDialog.Accepted
         return (dlg.input.text(), accepted)

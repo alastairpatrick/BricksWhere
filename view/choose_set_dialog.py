@@ -128,7 +128,7 @@ class ChooseSetDialog(QDialog):
             self._suppress_autocomplete = False
 
     @staticmethod
-    def getText(parent, viewmodel: AddSetViewModel):
+    def get_input(parent, viewmodel: AddSetViewModel):
         dlg = ChooseSetDialog(parent=parent, viewmodel=viewmodel)
         accepted = dlg.exec() == QDialog.Accepted
         return (dlg._edit.text(), accepted)
