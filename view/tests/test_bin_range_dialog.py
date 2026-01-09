@@ -4,6 +4,7 @@ pytestmark = pytest.mark.usefixtures("app_qt")
 from PySide6.QtWidgets import QDialog
 
 from view.bin_range_dialog import BinRangeDialog
+from viewmodel.bin_report_viewmodel import BinReportViewModel
 
 
 def test_generate_disabled_until_valid_range():
@@ -30,10 +31,7 @@ def test_include_images_checked_by_default_and_cancel_closes():
 
 
 def test_generate_displays_pdf(executor, app_qt):
-    # provide a BinRangeViewModel with no delay so FakeExecutor won't block
-    from viewmodel.bin_report_viewmodel import BinReportViewModel
-
-    vm = BinReportViewModel(executor, delay=0)
+    vm = BinReportViewModel(executor)
 
     # fake PDF viewer that captures bytes
     captured = {}

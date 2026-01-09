@@ -17,10 +17,9 @@ import requests
 logger = logging.getLogger(__name__)
 
 class BinReportViewModel:
-    def __init__(self, executor, db_path: str = "data.db", name: str = "Bin Range Report", delay: float = 1.0, requests_session=None):
+    def __init__(self, executor, db_path: str = "data.db", name: str = "Bin Range Report", requests_session=None):
         # executor may be a FakeExecutor in tests
         self.background_task = BackgroundTask(executor, name=name)
-        self._delay = delay
         self.db_path = db_path
         self.requests_session = requests_session
 
@@ -34,10 +33,6 @@ class BinReportViewModel:
         Query type 'bin_range' requires 'start' and 'end' keys with string values (may be None for unbounded).
         """
         def worker(progress, is_cancelled):
-            progress("Starting report generation")
-            # optional artificial delay for tests
-            if self._delay and self._delay > 0:
-                time.sleep(self._delay)
             progress("Querying owned parts")
             rows = _fetch_owned_parts(self.db_path, query)
             if is_cancelled():
